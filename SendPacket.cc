@@ -6,14 +6,57 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleAdhocGrid");
 
 void DisplayMessage(Ptr<Socket> socket);
 void DCNET(Ptr<Socket> socket, int numRounds);
-std::string hexStr(byte *data, int len)
+
+//**************************Anonymous receiver steps*********************
+static void AnonymousReceiverStep1()
 {
-    std::stringstream ss;
-    ss<<std::hex;
-    for(int i(0); i<len; ++i)
-        ss<<(int)data[i];
-    return ss.str();
+	int sourceNode = 0;
+	int stepId = 0;
+	currentStep = stepId;
+	std::string sourceMessage = "Hello";
+	std::string sourceControl = INITIATE_MESSAGE;
+	std::string sourceMessageId ="000-000-0001";
+	SendMessageUsingDCNET(source,sourceNode, sourceControl, sourceMessageId,sourceMessage);	
 }
+	
+static void AnonymousReceiverStep2()
+{
+	std::cout<<"In anonymous Receiver step 2\n";
+	int receiveNode = 1;
+	std::string replyMessage = "hi";
+	std::string replyControl= MESSAGE_SET;
+	std::string replyMessageId;
+
+	//check the step 1 output and process it
+
+	replyMessageId = decode_binary(receiveNode, sharedMessage.str().c_str());
+
+	//step2 - Node C wants to reply to the message by sending first the AES key
+
+	//SendMessageUsingDCNET(source,replyNode, replyControl, replyMessageId,"");
+	
+}
+
+static void AnonymousReceiverStep3()
+{
+	std::cout<<"In anonymous Receiver step 3\n";
+}
+
+static void procedureHandle(Ptr<Socket> socket)
+{
+	if(currentStep == 1)	//advance to next step 2
+		AnonymousReceiverStep2();
+	if(currentStep == 2)	//advance to next step 3
+		AnonymousReceiverStep3();
+	if(currentStep == 3)
+	{
+		//stop the simulation
+		socket->Close();
+       		Simulator::Stop ();
+	}
+}
+
+//**************************Anonymous receiver steps*********************
 
 static void SendMessage (Ptr<Socket> socket, std::string message, int index, int dest)
 {
@@ -377,7 +420,9 @@ for (int index1 = 0; index1 < (int)numNodes; index1++)
 
 void DisplayMeasurements()
 {
-    std::cout<<"Shared Message after "<<MessageLength<<" rounds is : "<<sharedMessage.str()<<"\n";
+	
+    std::cout<<"Message length:"<<MessageLength<<"\n";	
+    //std::cout<<"Shared Message after "<<MessageLength<<" rounds is : "<<sharedMessage.str()<<"\n";
     std::cout<<"Sent Packet Count Stage 1: "<<stage1SentPacketCount<<"\n";
     std::cout<<"Sent Packet Count Stage 2: "<<stage2SentPacketCount<<"\n";
     std::cout<<"Sent Recv Count Stage 1: "<<stage1RecvPacketCount<<"\n";
@@ -412,8 +457,7 @@ void DCNET(Ptr<Socket> socket, int numRounds)
     //numRounds++;
 	std::cout<<"Debug : Inside dcnet\n";
 	 stage1StartTime.push_back(Simulator::Now());
-    	totalTimeStart = Simulator::Now();
-   
+    
         ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 
     if(numRounds < MessageLength)
@@ -457,16 +501,15 @@ void DCNET(Ptr<Socket> socket, int numRounds)
        // stage2EndTime.erase(stage2EndTime.begin());
        // stage2EndTime.push_back(Simulator::Now());
         DisplayMeasurements();
-	
-        socket->Close();
-       	Simulator::Stop ();
-	
+	currentStep++;
+	//this method handles the anonymous receiver steps
+	procedureHandle(socket);	
     }
 }
 
 void GenerateKeyPairForNode(int nodeIndex)
 {
-	params.GenerateRandomWithKeySize(rnd, 1024);
+	params.GenerateRandomWithKeySize(rnd, 256);
 	RSA::PrivateKey privateKey(params);
 	RSA::PublicKey publicKey(params);
 	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
@@ -474,6 +517,12 @@ void GenerateKeyPairForNode(int nodeIndex)
 	appUtil->putShortLivedPublicKeyInMap(nodeIndex, publicKey);
 	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, privateKey);
 }
+
+
+
+
+
+
 
 
 int main (int argc, char *argv[])
@@ -591,12 +640,14 @@ int main (int argc, char *argv[])
 
 //****************************anonymous receiver part*******************************************
 
+// Generate a random IV and a common IV
+AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
+
+
 //step 1 - Node A sends Message to all nodes using DCNet
-int sourceNode = 0;
-std::string sourceMessage = "Hello";
-std::string sourceControl= INITIATE_MESSAGE;
-std::string sourceMessageId="000-000-0001";
-anonymousReceiver(source,sourceNode, sourceControl, sourceMessageId,sourceMessage );
+
+AnonymousReceiverStep1();
+
 
 //**********************************************************************************************
 
