@@ -15,7 +15,8 @@
 #include <fstream>
 #include <vector>
 #include <string>
-#include "crypto++/aes.h" 
+#include "crypto++/aes.h"
+#include "crypto++/rsa.h" 
 #include "crypto++/sha.h"
 #include "crypto++/modes.h"
 #include "crypto++/integer.h"
@@ -32,6 +33,7 @@
 
 using CryptoPP::AutoSeededRandomPool;
 using CryptoPP::ModularExponentiation;
+using CryptoPP::InvertibleRSAFunction;
 using std::runtime_error;
 using CryptoPP::DH;
 using CryptoPP::SecByteBlock;
@@ -94,7 +96,7 @@ AutoSeededRandomPool rnd;
 byte iv[AES::BLOCKSIZE];	
 SecByteBlock key(SHA256::DIGESTSIZE);
 static std::string msgs[20];
-
+InvertibleRSAFunction params;
 //measurement variables
 
 int stage1SentPacketCount = 0;
@@ -138,6 +140,13 @@ class ApplicationUtil
 	map<int,int> announcement;
 	map<int, int> receivedAnnouncementSubMap;
 	map<int, map<int, int> > receivedAnnouncement;
+
+	//anonymous receiver DS
+	map<int,RSA::PublicKey> shortLivedPublicKey;
+	map<int,RSA::PrivateKey> shortLivedPrivateKey;
+	std::vector<SecByteBlock> AESKeysReceived;
+	map<int,RSA::PublicKey> msgIdPublicKeyPairMap;
+
 public:
 
 	void writeOutputToFile(char* fileName, int option, int numNodes,int length, double latency, double totalTime );
@@ -164,11 +173,11 @@ public:
 
 	void putNodeInMap(Ptr<Node> node,int index);
 	int getNodeFromMap(Ptr<Node> node);
-void putAnnouncementInGlobalMap(int nodeId,int value);
-int getAnnouncement(int nodeId);
-void putAnnouncementInReceivedMap(int nodeId, int senderNode, int value);
-map<int, int> getAnnouncementSubMap(int nodeId);
-int getReceivedAnnouncement(int nodeId, int senderNodeId);
+	void putAnnouncementInGlobalMap(int nodeId,int value);
+	int getAnnouncement(int nodeId);
+	void putAnnouncementInReceivedMap(int nodeId, int senderNode, int value);
+	map<int, int> getAnnouncementSubMap(int nodeId);
+	int getReceivedAnnouncement(int nodeId, int senderNodeId);
 
 	static ApplicationUtil* getInstance();	
 	
@@ -176,6 +185,19 @@ int getReceivedAnnouncement(int nodeId, int senderNodeId);
         {
 	  instanceFlag = false;
         }
+
+	//anonymous receiver methods
+
+	RSA::PublicKey getShortLivedPublicKeyFromMap(int nodeId);
+	void putShortLivedPublicKeyInMap(int nodeId, RSA::PublicKey key);
+	RSA::PrivateKey getShortLivedPrivateKeyFromMap(int nodeId);
+	void putShortLivedPrivateKeyInMap(int nodeId, RSA::PrivateKey key);
+	std::vector<SecByteBlock> getAESKeyVector();
+	void addAESKeyInVector(SecByteBlock key);
+	RSA::PublicKey getShortLivedPublicKeyForMsgId(int msgId);
+	void putShortLivedPublicKeyforMsgId(int msgId, RSA::PublicKey key);
+
+
 };
 bool ApplicationUtil::instanceFlag = false;
 ApplicationUtil* ApplicationUtil::appUtil = NULL;
@@ -440,6 +462,65 @@ void ApplicationUtil::writeOutputToFile(char* fileName, int option, int numNodes
     fout << "\n";
     fout.close();
 }
+
+//*********************Anonymous receiver methods*******************
+
+
+RSA::PublicKey ApplicationUtil::getShortLivedPublicKeyFromMap(int nodeId)
+{
+	map<int,RSA::PublicKey>::iterator p;
+	p = shortLivedPublicKey.find(nodeId);
+	return p->second;
+}
+
+void ApplicationUtil::putShortLivedPublicKeyInMap(int nodeId, RSA::PublicKey key)
+{
+	shortLivedPublicKey.insert(pair<int,RSA::PublicKey>(nodeId,key));
+}
+
+RSA::PrivateKey ApplicationUtil::getShortLivedPrivateKeyFromMap(int nodeId)
+{
+	map<int,RSA::PrivateKey>::iterator p;
+	p = shortLivedPrivateKey.find(nodeId);
+	return p->second;
+}
+
+void ApplicationUtil::putShortLivedPrivateKeyInMap(int nodeId, RSA::PrivateKey key)
+{
+	shortLivedPrivateKey.insert(pair<int,RSA::PrivateKey>(nodeId,key));
+}
+
+
+std::vector<SecByteBlock> ApplicationUtil::getAESKeyVector()
+{
+	return AESKeysReceived;
+}
+	
+void ApplicationUtil::addAESKeyInVector(SecByteBlock key)
+{
+	AESKeysReceived.push_back(key);
+}
+RSA::PublicKey ApplicationUtil::getShortLivedPublicKeyForMsgId(int msgId)
+{
+	map<int,RSA::PublicKey>::iterator p;
+	p = msgIdPublicKeyPairMap.find(msgId);
+	return p->second;
+	
+}
+void ApplicationUtil::putShortLivedPublicKeyforMsgId(int msgId, RSA::PublicKey key)
+{
+	msgIdPublicKeyPairMap.insert(pair<int,RSA::PublicKey>(msgId,key));
+}
+
+///************************************************************
+
+
+
+
+
+
+
+
 
 
 /*
