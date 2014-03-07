@@ -32,19 +32,22 @@ std::string encrypt_message_public_key(std::string input)
 	return input ; //need to be impelemented using AES decryption key
 }
 
-void submit_initiate_message(void)
+std::string submit_initiate_message(std::string key, std::string control, std::string messageid, std::string message)
 {
-	std::string key=                                                                         "ab359aa76a6773ed7a93b214db0c25d0160817b8a893c001c761e198a3694509ebe8"
-"7a5313e0349d95083e5412c9fc815bfd61f95ddece43376550fdc624e92ff38a415783b9726120"
-"4e05d65731bba1ccff0e84c8cd2097b75feca1029261ae19a389a2e15d2939314b184aef707b82"
-"eb94412065181d23e04bf065f4ac413fh";
-	std::string control=INITIATE_MESSAGE;
-    std::string messageid="000-000-0001";
-    std::string message="Hello I am working on Encrypting and decrypting data. Do you like this. I do. This is very interesting project and perhaps you can submit it to conference";
-    std::string binaryresult=encoded_message_initiate(control,messageid,message,key);   // now you get a message and send this message using DCNET
+//	std::string key=                                                                         "ab359aa76a6773ed7a93b214db0c25d0160817b8a893c001c761e198a3694509ebe8"
+//"7a5313e0349d95083e5412c9fc815bfd61f95ddece43376550fdc624e92ff38a415783b9726120"
+//"4e05d65731bba1ccff0e84c8cd2097b75feca1029261ae19a389a2e15d2939314b184aef707b82"
+//"eb94412065181d23e04bf065f4ac413fh";
+//	std::string control=INITIATE_MESSAGE;
+  //  std::string messageid="000-000-0001";
+ //   std::string message="Hello I am working on Encrypting and decrypting data. Do you like this. I do. This is very interesting project and perhaps you can submit it to conference";
+    
     //std::cout<< "Length : "<<binaryresult.length()<<"\n";
     //std::cout << "binary representation of a std::string :" << binaryresult << "\n";
-    decode_binary(binaryresult.c_str());   
+
+	std::string binaryresult = encoded_message_initiate(control,messageid,message,key);   // now you get a message and send this message using DCNET
+  //  decode_binary(binaryresult.c_str());
+	return binaryresult;   
 }
 
 void submit_set_message(void)
