@@ -411,6 +411,9 @@ void DCNET(Ptr<Socket> socket, int numRounds)
 {
     //numRounds++;
 	std::cout<<"Debug : Inside dcnet\n";
+	 stage1StartTime.push_back(Simulator::Now());
+    	totalTimeStart = Simulator::Now();
+   
         ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 
     if(numRounds < MessageLength)
@@ -461,6 +464,18 @@ void DCNET(Ptr<Socket> socket, int numRounds)
     }
 }
 
+void GenerateKeyPairForNode(int nodeIndex)
+{
+	params.GenerateRandomWithKeySize(rnd, 1024);
+	RSA::PrivateKey privateKey(params);
+	RSA::PublicKey publicKey(params);
+	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
+
+	appUtil->putShortLivedPublicKeyInMap(nodeIndex, publicKey);
+	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, privateKey);
+}
+
+
 int main (int argc, char *argv[])
 {
 
@@ -493,6 +508,7 @@ int main (int argc, char *argv[])
     c.Create (numNodes);
     for(int nodeind = 0; nodeind < numNodes; nodeind++)
     {
+	GenerateKeyPairForNode(nodeind);
         appUtil->putNodeInMap(c.Get(nodeind),nodeind);
     }
     // The below set of helpers will help us to put together the wifi NICs we want
@@ -566,28 +582,21 @@ int main (int argc, char *argv[])
     randomBitCounter = (numNodes * (numNodes-1)/2);
 
 
-    std::cout<<"Actual Message : "<<Message<<"\n";
-    MessageLength = (int)strlen(Message.c_str()) ;
-    std::cout<<"Message length:"<<MessageLength<<"\n";
+  //  std::cout<<"Actual Message : "<<Message<<"\n";
+ //   MessageLength = (int)strlen(Message.c_str()) ;
+  //  std::cout<<"Message length:"<<MessageLength<<"\n";
     source = Socket::CreateSocket (c.Get (0), tid);
-    stage1StartTime.push_back(Simulator::Now());
-    totalTimeStart = Simulator::Now();
-    DCNET(source, 0);
-
-
-std::cout<<"***********************************\n";
-
-	submit_reply_message();
-	std::cout<<"\n";	
-	
-std::cout<<"************************************\n";
-
+   // DCNET(source, 0);
 
 
 //****************************anonymous receiver part*******************************************
 
-
-anonymousReceiver(source,Message);
+//step 1 - Node A sends Message to all nodes using DCNet
+int sourceNode = 0;
+std::string sourceMessage = "Hello";
+std::string sourceControl= INITIATE_MESSAGE;
+std::string sourceMessageId="000-000-0001";
+anonymousReceiver(source,sourceNode, sourceControl, sourceMessageId,sourceMessage );
 
 //**********************************************************************************************
 
