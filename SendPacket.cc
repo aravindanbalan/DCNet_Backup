@@ -8,38 +8,45 @@ void DisplayMessage(Ptr<Socket> socket);
 void DCNET(Ptr<Socket> socket, int numRounds);
 
 //**************************Anonymous receiver steps*********************
+
 static void AnonymousReceiverStep1()
 {
-	int sourceNode = 0;
+	//int sourceNode = 0;
 	int stepId = 0;
 	currentStep = stepId;
 	std::string sourceMessage = "Hello";
 	std::string sourceControl = INITIATE_MESSAGE;
 	std::string sourceMessageId ="000-000-0001";
-	SendMessageUsingDCNET(source,sourceNode, sourceControl, sourceMessageId,sourceMessage);	
+	//	SendMessageUsingDCNET(source,sourceNode, sourceControl, sourceMessageId,sourceMessage);	
 }
 	
 static void AnonymousReceiverStep2()
 {
 	std::cout<<"In anonymous Receiver step 2\n";
 	int receiveNode = 1;
-	std::string replyMessage = "hi";
+	//std::string replyMessage = "hi";
 	std::string replyControl= MESSAGE_SET;
 	std::string replyMessageId;
 
+	Ptr<Socket> replySource = Socket::CreateSocket (c.Get (receiveNode), tid);
 	//check the step 1 output and process it
 
 	replyMessageId = decode_binary(receiveNode, sharedMessage.str().c_str());
 
 	//step2 - Node C wants to reply to the message by sending first the AES key
 
-	//SendMessageUsingDCNET(source,replyNode, replyControl, replyMessageId,"");
+	SendMessageUsingDCNET(replySource,receiveNode, replyControl, replyMessageId,"");
 	
 }
 
 static void AnonymousReceiverStep3()
 {
 	std::cout<<"In anonymous Receiver step 3\n";
+	std::string replyMessage = "hi";
+	
+	//do it for all nodes - as all nodes try to decrypt with its AES keys
+	decode_binary(0, sharedMessage.str().c_str());
+
 }
 
 static void procedureHandle(Ptr<Socket> socket)
@@ -50,8 +57,7 @@ static void procedureHandle(Ptr<Socket> socket)
 		AnonymousReceiverStep3();
 	if(currentStep == 3)
 	{
-		//stop the simulation
-		socket->Close();
+		//stop the simulation		
        		Simulator::Stop ();
 	}
 }
@@ -81,7 +87,6 @@ void ReceiveMessage (Ptr<Socket> socket)
     int recNodeIndex = ApplicationUtil::getInstance()->getNodeFromMap(recvnode);
 
     uint8_t *buffer = new uint8_t[recPacket->GetSize()];
-    recPacket->CopyData(buffer,recPacket->GetSize());
 
     std::string recMessage = std::string((char*)buffer);
     recMessage = recMessage.substr (0,messageLen-1);
@@ -145,7 +150,7 @@ publicKeyCounter = (numNodes * numNodes) - numNodes;
             if(index1 < index2)
             {
                 int randomBit = randomBitGeneratorWithProb(0.5);
-                std::cout<<"Random bit : "<<randomBit<<" "<<index1<<" "<<index2<<"\n";
+             //   std::cout<<"Random bit : "<<randomBit<<" "<<index1<<" "<<index2<<"\n";
 
                 //put random bit in both the maps - src and dest maps
 
@@ -187,7 +192,7 @@ publicKeyCounter = (numNodes * numNodes) - numNodes;
 static void SendPublicKey (Ptr<Socket> socket, SecByteBlock pub, int index)
 {
     Ptr<Packet> sendPacket = Create<Packet> ((uint8_t*)pub.BytePtr(),(uint8_t) pub.SizeInBytes());
-	std::cout<<"Debug : Inside dcnet send public key \n";
+//	std::cout<<"Debug : Inside dcnet send public key \n";
     MyTag sendTag;
     sendTag.SetSimpleValue(index);
     sendPacket->AddPacketTag(sendTag);
@@ -201,7 +206,7 @@ static void SendPublicKey (Ptr<Socket> socket, SecByteBlock pub, int index)
 
 void ReceivePublicKey (Ptr<Socket> socket)
 {
- std::cout<<"Debug : Inside dcnet receive public key \n";
+ //std::cout<<"Debug : Inside dcnet receive public key \n";
     Ptr<Node> recvnode = socket->GetNode();
     int recNodeIndex = ApplicationUtil::getInstance()->getNodeFromMap(recvnode);
 
@@ -234,10 +239,10 @@ void ReceivePublicKey (Ptr<Socket> socket)
     ApplicationUtil::getInstance()->putSecretKeyInGlobalMap(recNodeIndex,srcNodeIndex,sharedKey);
 
     publicKeyCounter--;
-	std::cout<<"Public key counter :"<< publicKeyCounter<< "\n";
+//	std::cout<<"Public key counter :"<< publicKeyCounter<< "\n";
     if(publicKeyCounter == 0)
     {
-	std::cout<<"Debug : calling simulator loop \n";
+//	std::cout<<"Debug : calling simulator loop \n";
         Simulator::ScheduleNow (&SimulatorLoop, socket,tid,c,i);
     }
 
@@ -362,7 +367,7 @@ void DisplayMessage(Ptr<Socket> socket)
     
     int bit = Message.at(rounds)-48 ;
 	
-	std::cout<<"Current Round : "<<rounds<<" and current bit : "<<bit<<"\n";
+	std::cout<<"Current Round : "<<rounds<<"\n";
     for(int index = 0; index < (int)numNodes ; index++)
     {
 
@@ -372,7 +377,7 @@ void DisplayMessage(Ptr<Socket> socket)
         for (map<int,int>::iterator it=NodeSecretBitMap.begin(); it!=NodeSecretBitMap.end(); ++it)
         {
 
-	std::cout<<"Adj bits of node "<<index<<" : "<<(int)it->second<<"\n";
+	//std::cout<<"Adj bits of node "<<index<<" : "<<(int)it->second<<"\n";
             //Exor the adjacent node bits stored in the map
             result ^= (int)it->second;
         }
@@ -381,7 +386,7 @@ void DisplayMessage(Ptr<Socket> socket)
             result ^= bit;
         }
 	
-	std::cout<<"Result for Node "<<index<<" is : "<<result<<" in round "<<rounds<<"\n";
+	//std::cout<<"Result for Node "<<index<<" is : "<<result<<" in round "<<rounds<<"\n";
 		appUtil->putAnnouncementInGlobalMap(index, result);
 
 	}
@@ -455,7 +460,7 @@ ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 void DCNET(Ptr<Socket> socket, int numRounds)
 {
     //numRounds++;
-	std::cout<<"Debug : Inside dcnet\n";
+	//std::cout<<"Debug : Inside dcnet\n";
 	 stage1StartTime.push_back(Simulator::Now());
     
         ApplicationUtil *appUtil = ApplicationUtil::getInstance();
@@ -479,7 +484,7 @@ void DCNET(Ptr<Socket> socket, int numRounds)
             {
                 if(index1 != index2)
                 {
-			std::cout<<"Debug : Inside dcnet  1\n";
+		//	std::cout<<"Debug : Inside dcnet  1\n";
                     Ptr<Socket> recvNodeSink = Socket::CreateSocket (c.Get (index2), tid);
                     InetSocketAddress localSocket = InetSocketAddress (Ipv4Address::GetAny (),9803);
                     recvNodeSink->Bind (localSocket);
@@ -497,7 +502,7 @@ void DCNET(Ptr<Socket> socket, int numRounds)
     }
     else
     {
-	std::cout<<"Debug : Inside dcnet else part\n";
+//	std::cout<<"Debug : Inside dcnet else part\n";
        // stage2EndTime.erase(stage2EndTime.begin());
        // stage2EndTime.push_back(Simulator::Now());
         DisplayMeasurements();
@@ -507,23 +512,126 @@ void DCNET(Ptr<Socket> socket, int numRounds)
     }
 }
 
+void DumpPrivateKey( const CryptoPP::RSAES_OAEP_SHA_Decryptor& key )
+{
+   std::cout << "n: " << key.GetTrapdoorFunction().GetModulus();
+   std::cout << std::endl;
+
+   std::cout << "d: " << key.GetTrapdoorFunction().GetPrivateExponent();
+   std::cout << std::endl;
+   std::cout << "e: " << key.GetTrapdoorFunction().GetPublicExponent();
+   std::cout << std::endl;
+
+   std::cout << "p: " << key.GetTrapdoorFunction().GetPrime1();
+   std::cout << std::endl;
+   std::cout << "q: " << key.GetTrapdoorFunction().GetPrime2();
+   std::cout << std::endl;
+}
+
+void DumpPublicKey( const CryptoPP::RSAES_OAEP_SHA_Encryptor& key )
+{
+   std::cout << "n: " << key.GetTrapdoorFunction().GetModulus();
+   std::cout << std::endl;
+
+   ////////////////////////////////////////////////////////////////
+   // Not in a Public Key...
+   // std::cout << "d: " << key.GetTrapdoorFunction().GetPrivateExponent();
+   // std::cout << std::endl;
+   std::cout << "e: " << key.GetTrapdoorFunction().GetPublicExponent();
+   std::cout << std::endl;
+
+   ////////////////////////////////////////////////////////////////
+   // Not in a Public Key...
+   // std::cout << "p: " << key.GetTrapdoorFunction().GetPrime1();
+   // std::cout << std::endl;
+   // std::cout << "q: " << key.GetTrapdoorFunction().GetPrime2();
+   // std::cout << std::endl;
+}
+
 void GenerateKeyPairForNode(int nodeIndex)
 {
-	params.GenerateRandomWithKeySize(rnd, 256);
-	RSA::PrivateKey privateKey(params);
-	RSA::PublicKey publicKey(params);
+//	params.GenerateRandomWithKeySize(rnd, 512);
+	RSA::PrivateKey privKey;
+	privKey.Initialize(n, e, d);
+
+	RSA::PublicKey pubKey;
+	pubKey.Initialize(n, e);
+
 	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 
 	appUtil->putShortLivedPublicKeyInMap(nodeIndex, publicKey);
 	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, privateKey);
-}
+
+	//std::string publiKey = "305A300D06092A864886F70D01010105000349003046024100BEDD8D4C5BB0E964C496225638823E6397CB6CA33D1B9B609B7DFE4F27C58CC5600607867564C8283E99341D5851669C4606C0A671C241416DA8F80868E29813020111";
+
+	if(nodeIndex==0)
+	{
+	AutoSeededRandomPool prng;
+	
+	
+	Integer n("0xbeaadb3d839f3b5f"), e("0x11"), d("0x21a5ae37b9959db9");
+
+	RSA::PrivateKey privKey;
+	privKey.Initialize(n, e, d);
+
+	RSA::PublicKey pubKey;
+	pubKey.Initialize(n, e);
+
+	/////////////////////////////////////////////////////////
+
+	std::string pubKeyString1, encodedPub1;
+
+	pubKey.Save(CryptoPP::StringSink(pubKeyString1).Ref());
+
+	StringSource( pubKeyString1, true,
+		    new HexEncoder(
+			new StringSink( encodedPub1 )
+		    ) // HexEncoder
+		);
+
+	std::cout<<"Key : "<< encodedPub1<<"\n";
+	std::string message, recovered;
+	Integer m, c, r;
+	
+	message = "secret";
+	std::cout << "message: " << message << "\n";
+	
+	// Treat the message as a big endian array
+	m = Integer((const byte *)message.data(), message.size());
+	std::cout << "m: " << hex << m << "\n";
+
+	// Encrypt
+	c = pubKey.ApplyFunction(m);
+	std::cout << "c: " << hex << c << "\n";
+
+	// Decrypt
+	r = privKey.CalculateInverse(prng, c);
+	std::cout << "r: " << hex << r << "\n";
+
+	// Round trip the message
+	size_t req = r.MinEncodedSize();
+	recovered.resize(req);
+	r.Encode((byte *)recovered.data(), recovered.size());
+
+	std::cout << "recovered: " << recovered << "\n";
 
 
+	RSA::PublicKey pubKey1;
+	pubKey1.Initialize(n, e);
 
+	std::string pubKeyString2, encodedpub2;
 
+	pubKey1.Save(CryptoPP::StringSink(pubKeyString2).Ref());
 
+	StringSource( pubKeyString2, true,
+		    new HexEncoder(
+			new StringSink( encodedpub2 )
+		    ) // HexEncoder
+		);
+	std::cout<<"Key : "<< encodedpub2<<"\n";
+	}
 
-
+}	
 
 int main (int argc, char *argv[])
 {
