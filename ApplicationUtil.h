@@ -66,7 +66,7 @@ Integer q("0xF518AA8781A8DF278ABA4E7D64B7CB9D49462353");
 
 
 Integer n("0xbeaadb3d839f3b5f"), e("0x11"), d("0x21a5ae37b9959db9");
-
+ 
 
 TypeId tid;
 Ipv4InterfaceContainer i;
@@ -122,8 +122,6 @@ Time totalTimeStart, totalTimeEnd;
 double totalRunningTime;
 double totalLatency;
 
-
-
 int publicKeyCounter = 0;
 int randomBitCounter = 0;
 
@@ -135,6 +133,35 @@ static std::string hexStr(byte *data, int len)
         ss<<(int)data[i];
     return ss.str();
 }
+
+static RSA::PublicKey process_publicKey(std::string publicKey)
+{
+	Integer n1(publicKey.substr(0,18).c_str());
+	Integer e1(publicKey.substr(18).c_str());
+
+	std::cout<<"*********"<<publicKey.substr(0,18)<<"\n";
+	std::cout<<"*********"<<publicKey.substr(18)<<"\n";
+
+	RSA::PublicKey pubKey;
+	pubKey.Initialize(n1, e1);
+	return pubKey;
+}
+
+static RSA::PrivateKey process_privateKey(std::string privKey)
+{
+	Integer n1(privKey.substr(0,18).c_str());
+	std::cout<<"*********"<<privKey.substr(0,18)<<"\n";
+	privKey = privKey.substr(18);
+	Integer e1(privKey.substr(0,4).c_str());
+	Integer d1(privKey.substr(4).c_str());
+	std::cout<<"*********"<<privKey.substr(0,4)<<"\n";
+	std::cout<<"*********"<<privKey.substr(4)<<"\n";
+
+	RSA::PrivateKey privateKey;
+	privateKey.Initialize(n1, e1, d1);
+	return privateKey;
+}
+
 
 class ApplicationUtil
 {	
@@ -159,12 +186,12 @@ class ApplicationUtil
 	map<int, map<int, int> > receivedAnnouncement;
 
 	//anonymous receiver DS
-	map<int,RSA::PublicKey> shortLivedPublicKey;
-	map<int,RSA::PrivateKey> shortLivedPrivateKey;
+	map<int,std::string> shortLivedPublicKey;
+	map<int,std::string> shortLivedPrivateKey;
 	std::vector<SecByteBlock> AESKeysReceived;
 	map<int, std::vector<SecByteBlock> > AESKeyMap;
-	map<int, RSA::PublicKey> msgIdPublicKeyPairSubMap;
-	map<int, map<int, RSA::PublicKey> > msgIdPublicKeyPairMap;
+	map<int, std::string> msgIdPublicKeyPairSubMap;
+	map<int, map<int, std::string> > msgIdPublicKeyPairMap;
 
 public:
 
@@ -207,17 +234,17 @@ public:
 
 	//anonymous receiver methods
 
-	RSA::PublicKey getShortLivedPublicKeyFromMap(int nodeId);
-	void putShortLivedPublicKeyInMap(int nodeId, RSA::PublicKey key);
-	RSA::PrivateKey getShortLivedPrivateKeyFromMap(int nodeId);
-	void putShortLivedPrivateKeyInMap(int nodeId, RSA::PrivateKey key);
+	std::string getShortLivedPublicKeyFromMap(int nodeId);
+	void putShortLivedPublicKeyInMap(int nodeId, std::string key);
+	std::string getShortLivedPrivateKeyFromMap(int nodeId);
+	void putShortLivedPrivateKeyInMap(int nodeId,std::string key);
 	std::vector<SecByteBlock> getAESKeyVector(int nodeId);
 	void putAESKeyInMap(int nodeId, SecByteBlock key);
 	
 
-	void putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, RSA::PublicKey value);
-	map<int, RSA::PublicKey> getShortLivedPublicKeyforMsgIdSubMap(int nodeId);
-	RSA::PublicKey getShortLivedPublicKeyforMsgIdFromMap(int nodeId, int msgId);
+	void putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, std::string value);
+	map<int, std::string> getShortLivedPublicKeyforMsgIdSubMap(int nodeId);
+	std::string getShortLivedPublicKeyforMsgIdFromMap(int nodeId, int msgId);
 
 };
 bool ApplicationUtil::instanceFlag = false;
@@ -487,28 +514,28 @@ void ApplicationUtil::writeOutputToFile(char* fileName, int option, int numNodes
 //*********************Anonymous receiver methods*******************
 
 
-RSA::PublicKey ApplicationUtil::getShortLivedPublicKeyFromMap(int nodeId)
+std::string ApplicationUtil::getShortLivedPublicKeyFromMap(int nodeId)
 {
-	map<int,RSA::PublicKey>::iterator p;
+	map<int,std::string>::iterator p;
 	p = shortLivedPublicKey.find(nodeId);
 	return p->second;
 }
 
-void ApplicationUtil::putShortLivedPublicKeyInMap(int nodeId, RSA::PublicKey key)
+void ApplicationUtil::putShortLivedPublicKeyInMap(int nodeId, std::string key)
 {
-	shortLivedPublicKey.insert(pair<int,RSA::PublicKey>(nodeId,key));
+	shortLivedPublicKey.insert(pair<int,std::string>(nodeId,key));
 }
 
-RSA::PrivateKey ApplicationUtil::getShortLivedPrivateKeyFromMap(int nodeId)
+std::string ApplicationUtil::getShortLivedPrivateKeyFromMap(int nodeId)
 {
-	map<int,RSA::PrivateKey>::iterator p;
+	map<int,std::string>::iterator p;
 	p = shortLivedPrivateKey.find(nodeId);
 	return p->second;
 }
 
-void ApplicationUtil::putShortLivedPrivateKeyInMap(int nodeId, RSA::PrivateKey key)
+void ApplicationUtil::putShortLivedPrivateKeyInMap(int nodeId, std::string key)
 {
-	shortLivedPrivateKey.insert(pair<int,RSA::PrivateKey>(nodeId,key));
+	shortLivedPrivateKey.insert(pair<int,std::string>(nodeId,key));
 }
 
 
@@ -534,50 +561,50 @@ void ApplicationUtil::putAESKeyInMap(int nodeId, SecByteBlock key)
 	}
 }
 
-void ApplicationUtil::putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, RSA::PublicKey value)
+void ApplicationUtil::putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, std::string value)
 {
 
-	map<int,map<int,RSA::PublicKey> >::iterator p;
+	map<int,map<int,std::string> >::iterator p;
 	p = msgIdPublicKeyPairMap.find(nodeId);
 	if(p != msgIdPublicKeyPairMap.end())
 	{
-		map<int,RSA::PublicKey>::iterator p1;
+		map<int,std::string>::iterator p1;
 		p1 = p->second.find(msgId);	
 		if(p1 != p->second.end())
 			p->second[msgId] = value;
 		else
-		p->second.insert(pair<int,RSA::PublicKey>(msgId,value));
+		p->second.insert(pair<int,std::string>(msgId,value));
 
 	//	std::cout<<"Inserting "<<nodeId<<","<<senderNode<<","<<value<<"\n";
 		
 	}
 	else
 	{	
-		map<int,RSA::PublicKey> tempMap;	
-		tempMap.insert(pair<int,RSA::PublicKey>(msgId,value));
-		msgIdPublicKeyPairMap.insert(pair<int,map<int,RSA::PublicKey> >(nodeId,tempMap));
+		map<int,std::string> tempMap;	
+		tempMap.insert(pair<int,std::string>(msgId,value));
+		msgIdPublicKeyPairMap.insert(pair<int,map<int,std::string> >(nodeId,tempMap));
 	//	std::cout<<"Inserting "<<nodeId<<","<<senderNode<<","<<value<<"\n";
 	}
 
 }
 
-map<int, RSA::PublicKey> ApplicationUtil::getShortLivedPublicKeyforMsgIdSubMap(int nodeId)
+map<int,std::string> ApplicationUtil::getShortLivedPublicKeyforMsgIdSubMap(int nodeId)
 {
 
-	map<int, map<int,RSA::PublicKey> >::iterator p;
+	map<int, map<int,std::string> >::iterator p;
 	p = msgIdPublicKeyPairMap.find(nodeId);
 	
 	return p->second;
 
 }
 
-RSA::PublicKey ApplicationUtil::getShortLivedPublicKeyforMsgIdFromMap(int nodeId, int msgId)
+std::string ApplicationUtil::getShortLivedPublicKeyforMsgIdFromMap(int nodeId, int msgId)
 {
 	
-	map<int,map<int,RSA::PublicKey> >::iterator p;
+	map<int,map<int,std::string> >::iterator p;
 	p = msgIdPublicKeyPairMap.find(nodeId);
 
-	map<int,RSA::PublicKey>::iterator p1;
+	map<int,std::string>::iterator p1;
 	p1 = p->second.find(msgId);
 	return p1->second;
 
