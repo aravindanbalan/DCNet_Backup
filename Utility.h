@@ -15,8 +15,8 @@ AutoSeededRandomPool AESrnd;
 std::vector<char> convert_to_ascii(const char*);   //function for converting ASCII to Binary
 std::vector<char> convert_to_binary(const char*);   //function for converting Binary to ASCII
 std::vector<char>  get_message(std::string control,std::string msgid, std::string message,std::string publickey) ;
-int decode_binary(int recvNode, const char *input);
-int decrypt_message(int recvNode, std::string input);
+std::string decode_binary(int recvNode, const char *input);
+std::string decrypt_message(int recvNode, std::string input);
 std::string encrypt_message_public_key(std::string input, std::string publicKey);
 std::string encoded_message_initiate(std::string control,std::string msgid,std::string message,std::string key) ;
 void submit_initiate_message(void);
@@ -27,24 +27,148 @@ std::string cipher,encoded;
 std::string recovered;
 
 
+std::string process_input_to_cipher(std::string message, RSA::PublicKey pubKey)
+{
+	Integer m, c;
+	std::vector<std::string> messageVector;
+	int done = 1;
+	while(done)
+	{
+		std::string temp;
+		if(message.length() > 8)
+			temp = message.substr(0,8);
+		else 
+			temp = message.substr(0);
+		messageVector.push_back(temp);
+		//std::cout<<"temp : "<<temp<<"\n";
+		if((message.length() - 8) > 8)
+			message = message.substr(8);
+		else
+		{
+			done = 0;
+			message = message.substr(8);
+			messageVector.push_back(message);
+		}
+	}
+	
+	std::ostringstream appendedCipherText;
+	std::vector<std::string>::iterator itr;
+	for ( itr = messageVector.begin(); itr != messageVector.end(); ++itr )
+	{
+		std::cout<<"temp : "<<*(itr)<<"\n";	
+		
+	std::string tempmessage = *(itr);
+	// Treat the message as a big endian array
+	
+	m = Integer((const byte *)tempmessage.data(), tempmessage.size());
+	//m = Integer(message.c_str());
+	std::cout << "m: " << m << "\n";
+
+	//convert m to str and try converting back
+	
+	c = pubKey.ApplyFunction(m);
+	std::cout << "c: " << c << "\n";
+
+	std::ostringstream s;
+    	s<<c;
+    	std::string ss(s.str());
+	appendedCipherText<<c;
+	std::cout<<"mod c : "<<ss<<"\n";
+	}
+
+	std::cout<<"Appended cipher text : "<< appendedCipherText.str()<<"\n";
+	std::string cipherText = appendedCipherText.str();
+	return cipherText;
+}
+
+std::string process_cipher_to_plainText(std::string cipherText, RSA::PrivateKey privKey)
+{
+	std::vector<std::string> cipherTextVector;
+	int complete = 1;
+	std::string tempStr ;
+	while(complete)
+	{  
+		std::size_t found = cipherText.find(".");
+		if (found!=std::string::npos)
+		{		
+		    	std::cout << "first '.' found at: " << found << '\n';
+			tempStr = cipherText.substr(0,found+1);
+			cipherText = cipherText.substr(found+1);
+			cipherTextVector.push_back(tempStr);
+		}
+		else
+		{
+			complete = 0;		
+			tempStr = cipherText;
+		}
+		std::cout<<"Temp str : "<<tempStr<<"\n";
+	}
+
+	std::vector<std::string>::iterator itr2;
+	std::ostringstream plainTextStream;
+	std::string plainText;
+	for ( itr2 = cipherTextVector.begin(); itr2 != cipherTextVector.end(); ++itr2 )
+	{
+
+	std::string text = *(itr2);
+	Integer cint (text.c_str()), r;	
+	r = privKey.CalculateInverse(rnd, cint);
+	//std::cout << "r: " << r << "\n";
+
+	// Round trip the message
+	size_t req = r.MinEncodedSize();
+	recovered.resize(req);
+	r.Encode((byte *)recovered.data(), recovered.size());
+	plainTextStream<<recovered;
+	//std::cout << "recovered   111: " << recovered << "\n";
+	}
+	plainText = plainTextStream.str();
+	std::cout<< "Plaiin text retrieved : "<<plainText<<"\n";
+	
+	return plainText;
+}
+
+std::string decrypt_message_private_key(int recvNode, std::string cipherText)
+{
+	std::cout<<"##################cipherText : "<<cipherText<<"\n";
+	std::string plainText = "";
+	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
+	std::string priv = appUtil->getShortLivedPrivateKeyFromMap(recvNode);
+	std::cout<<"##################priv : "<<priv<<"\n";
+
+	RSA::PrivateKey privKey = process_privateKey(priv);
+	
+	plainText = process_cipher_to_plainText(cipherText,privKey);
+	std::cout<<"******Recovered mid + AES key : "<<plainText<<"\n";
+	return plainText ; //need to be impelemented using AES decryption key
+}
+
 std::string encrypt_message_public_key(std::string input, std::string publicKey)
 {
-	std::string cipher;
+	
 	CryptoPP::RSA::PublicKey pub;
 
 	std::cout<<"********************Decoded Public key : "<< publicKey<<"\n\n";	
 	
     	//pub.Load(const_cast<BufferedTransformation &>(*(CryptoPP::StringSource(publicKey, true).AttachedTransformation())));
 
-	 CryptoPP::StringSource pubStr(publicKey, true, new CryptoPP::HexDecoder);               
-         pub.BERDecodePublicKey(pubStr,false,publicKey.length()); 
+	pub = process_publicKey(publicKey);
+	std::string cipher;
+	cipher = process_input_to_cipher(input, pub);
+
+
+	// CryptoPP::StringSource pubStr(publicKey, true, new CryptoPP::HexDecoder);               
+        // pub.BERDecodePublicKey(pubStr,false,publicKey.length()); 
        
-	CryptoPP::RSAES_OAEP_SHA_Encryptor e(pub);
-	StringSource ss1(input, true,
-	    new PK_EncryptorFilter(rnd, e,
-		new StringSink(cipher)
-	   ) // PK_EncryptorFilter
-	);
+	
+	//**********************************remove later
+
+	std::cout<<"---------------------------------------\n";
+	
+	decrypt_message_private_key( 0, cipher);
+
+	std::cout<<"---------------------------------------\n";
+	
 	return cipher; 
 }
 
@@ -136,6 +260,11 @@ std::string  encoded_message_set(std::string control,std::string msgid,std::stri
 {   
 	std::string encoded_message;
 	encoded_message=msgid+key;
+	std::cout<<"Message id : "<<msgid<<"\n";
+std::cout<<"AES key : "<<key<<"\n";
+	std::cout<<"before encoded message : "<<encoded_message<<"\n";
+	std::cout<<"control : "<<control<<"\n";
+	std::cout<<"encrypted encoded message : "<<encrypt_message_public_key(encoded_message, publicKey)<<"\n";		
     encoded_message=control + encrypt_message_public_key(encoded_message, publicKey);
 
 	std::cout<<"************stage 2 : encoded message : "<<encoded_message<<"\n";
@@ -191,23 +320,8 @@ std::string decrypt_message_AES(std::string input)
 }
 
 
-std::string decrypt_message_private_key(int recvNode, std::string input)
-{
-	std::string plainText;
-	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
-	RSA::PrivateKey priv = appUtil->getShortLivedPrivateKeyFromMap(recvNode);
-	RSAES_OAEP_SHA_Decryptor d(priv);
 
-	StringSource ss2(input, true,
-    new PK_DecryptorFilter(rnd, d,
-        new StringSink(plainText)
-   ) // PK_DecryptorFilter
-);	
-
-	return plainText ; //need to be impelemented using AES decryption key
-}
-
-int decode_binary(int recvNode, const char *input)
+std::string decode_binary(int recvNode, const char *input)
 {
 	std::vector<char> ascii= convert_to_ascii(input);
     std::string asciiresult(ascii.begin(),ascii.end());
@@ -216,7 +330,7 @@ int decode_binary(int recvNode, const char *input)
    return decrypt_message(recvNode, asciiresult);
 }
 
-int decrypt_message(int recvNode, std::string input)
+std::string decrypt_message(int recvNode, std::string input)
 {
 	std::string messageid;
 	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
@@ -239,10 +353,16 @@ int decrypt_message(int recvNode, std::string input)
 	//		std::cout << "sending to decrypt the input with private key " << "\n";
         //    std::cout << "successfully decrypting with my private key" << "\n";
          //   std::cout << "got message id and aes key" << "\n";
+
+
+		std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ value of c : "<<input.substr(MESSAGE_TYPE_LENGTH)<<"\n";
        		std::string message_id_aes_key= decrypt_message_private_key(recvNode, input.substr(MESSAGE_TYPE_LENGTH));
             //now get the aes key and messageid and store it the way app wants
-           
-			messageid= message_id_aes_key.substr(0, MAX_MESSAGE_ID_LENGTH);
+          
+
+		
+		std::cout<<"********************MID + AES : "<<message_id_aes_key;
+			messageid = message_id_aes_key.substr(0, MAX_MESSAGE_ID_LENGTH);
 			std::cout <<"message_id: " << messageid<<"\n";
             std::string aes_key= message_id_aes_key.substr(MAX_MESSAGE_ID_LENGTH);
 			std::cout << "aes_key is: " << aes_key << "\n";
@@ -276,15 +396,16 @@ int decrypt_message(int recvNode, std::string input)
 		//assuming that this is working from str to publickey class object    
 		CryptoPP::RSA::PublicKey pub;
     		//pub.Load(const_cast<BufferedTransformation &>(*(CryptoPP::StringSource(decodedPublic_Key, true).AttachedTransformation())));	
-	 	CryptoPP::StringSource pubStr(decodedPublic_Key, true, new CryptoPP::HexDecoder);               
-           	pub.BERDecodePublicKey(pubStr,false,decodedPublic_Key.length()); 
+		//pub = process_publicKey(decodedPublic_Key);
+	 	//CryptoPP::StringSource pubStr(decodedPublic_Key, true, new CryptoPP::HexDecoder);               
+           	//pub.BERDecodePublicKey(pubStr,false,decodedPublic_Key.length()); 
 			
 		//put in msgid-Publickey map
-		appUtil->putShortLivedPublicKeyforMsgIdInMap(recvNode, atoi(messageid.c_str()),pub);
+		appUtil->putShortLivedPublicKeyforMsgIdInMap(recvNode, atoi(messageid.c_str()),decodedPublic_Key);
 		}
     }
 
-	return atoi(messageid.c_str());
+	return messageid;
   
 }
 std::vector<char> convert_to_binary(const char* input) 
