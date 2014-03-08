@@ -13,8 +13,8 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 		//Message = message;
 
 		std::string senderPublicKey, encodedPublicKey;
-	    	appUtil->getShortLivedPublicKeyFromMap(senderNode).Save(CryptoPP::StringSink(senderPublicKey).Ref());
-
+	    	senderPublicKey = appUtil->getShortLivedPublicKeyFromMap(senderNode);
+		
 	
 		StringSource( senderPublicKey, true,
 		    new HexEncoder(
@@ -46,17 +46,19 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 		std::cout<<"************Actual sent AES key : "<<AESKey_String<<"\n";
 		std::string sendPublicKey, encodedPublicKey;
 		//node A public key
-		appUtil->getShortLivedPublicKeyforMsgIdFromMap(senderNode,atoi(sourceMessageId.c_str())).Save(CryptoPP::StringSink(sendPublicKey).Ref());
-
-	/*	StringSource( sendPublicKey, true,
+		sendPublicKey = appUtil->getShortLivedPublicKeyforMsgIdFromMap(senderNode,atoi(sourceMessageId.c_str()));
+	
+/*	StringSource( sendPublicKey, true,
 		    new HexEncoder(
 			new StringSink( encodedPublicKey )
 		    ) // HexEncoder
 		);
 */
+	      std::cout<<"***************Sent message id : "<<sourceMessageId<<"\n";
 		Message = encoded_message_set(sourceControl, sourceMessageId, AESKey_String, sendPublicKey);
 		MessageLength = (int)strlen(Message.c_str()) ;	
 		std::cout<<"message : "<<Message<<"\n";
+		sharedMessage.str("");
 		DCNET(socket, 0);	
 		
 				
