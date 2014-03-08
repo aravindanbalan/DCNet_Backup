@@ -11,13 +11,13 @@ void DCNET(Ptr<Socket> socket, int numRounds);
 
 static void AnonymousReceiverStep1()
 {
-	//int sourceNode = 0;
+	int sourceNode = 0;
 	int stepId = 0;
 	currentStep = stepId;
 	std::string sourceMessage = "Hello";
 	std::string sourceControl = INITIATE_MESSAGE;
 	std::string sourceMessageId ="000-000-0001";
-	//	SendMessageUsingDCNET(source,sourceNode, sourceControl, sourceMessageId,sourceMessage);	
+	SendMessageUsingDCNET(source,sourceNode, sourceControl, sourceMessageId,sourceMessage);	
 }
 	
 static void AnonymousReceiverStep2()
@@ -32,7 +32,7 @@ static void AnonymousReceiverStep2()
 	//check the step 1 output and process it
 
 	replyMessageId = decode_binary(receiveNode, sharedMessage.str().c_str());
-
+	std::cout<<"************replyMessageid : "<<replyMessageId<<"\n";
 	//step2 - Node C wants to reply to the message by sending first the AES key
 
 	SendMessageUsingDCNET(replySource,receiveNode, replyControl, replyMessageId,"");
@@ -46,7 +46,6 @@ static void AnonymousReceiverStep3()
 	
 	//do it for all nodes - as all nodes try to decrypt with its AES keys
 	decode_binary(0, sharedMessage.str().c_str());
-
 }
 
 static void procedureHandle(Ptr<Socket> socket)
@@ -552,15 +551,18 @@ void GenerateKeyPairForNode(int nodeIndex)
 {
 //	params.GenerateRandomWithKeySize(rnd, 512);
 	RSA::PrivateKey privKey;
-	privKey.Initialize(n, e, d);
+	//privKey.Initialize(n, e, d);
 
 	RSA::PublicKey pubKey;
-	pubKey.Initialize(n, e);
+	//pubKey.Initialize(n, e);
 
-	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
+	ApplicationUtil *appUtil = ApplicationUtil::getInstance();	
 
-	appUtil->putShortLivedPublicKeyInMap(nodeIndex, publicKey);
-	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, privateKey);
+	pubKey = process_publicKey("0xbeaadb3d839f3b5f0x11");
+	privKey = process_privateKey("0xbeaadb3d839f3b5f0x110x21a5ae37b9959db9");
+	
+	appUtil->putShortLivedPublicKeyInMap(nodeIndex, "0xbeaadb3d839f3b5f0x11");
+	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, "0xbeaadb3d839f3b5f0x110x21a5ae37b9959db9");
 
 	//std::string publiKey = "305A300D06092A864886F70D01010105000349003046024100BEDD8D4C5BB0E964C496225638823E6397CB6CA33D1B9B609B7DFE4F27C58CC5600607867564C8283E99341D5851669C4606C0A671C241416DA8F80868E29813020111";
 
@@ -568,8 +570,7 @@ void GenerateKeyPairForNode(int nodeIndex)
 	{
 	AutoSeededRandomPool prng;
 	
-	
-	Integer n("0xbeaadb3d839f3b5f"), e("0x11"), d("0x21a5ae37b9959db9");
+		//Integer n("0xbeaadb3d839f3b5f"), e("0x11"), d("0x21a5ae37b9959db9");
 
 	RSA::PrivateKey privKey;
 	privKey.Initialize(n, e, d);
@@ -593,20 +594,50 @@ void GenerateKeyPairForNode(int nodeIndex)
 	std::string message, recovered;
 	Integer m, c, r;
 	
-	message = "secret";
+	message = "secret11223344556677";
 	std::cout << "message: " << message << "\n";
 	
+	//int mod = message.length() / 8;
+	std::vector<std::string> messageVector;
+	int done = 1;
+	while(done)
+	{
+		std::string temp;
+		if(message.length() > 8)
+			temp = message.substr(0,8);
+		else 
+			temp = message.substr(0);
+		messageVector.push_back(temp);
+		//std::cout<<"temp : "<<temp<<"\n";
+		if((message.length() - 8) > 8)
+			message = message.substr(8);
+		else
+		{
+			done = 0;
+			message = message.substr(8);
+			messageVector.push_back(message);
+		}
+	}
+	
+	std::ostringstream appendedCipherText;
+	std::vector<std::string>::iterator itr;
+	for ( itr = messageVector.begin(); itr != messageVector.end(); ++itr )
+	{
+		std::cout<<"temp : "<<*(itr)<<"\n";	
+		
+	std::string tempmessage = *(itr);
 	// Treat the message as a big endian array
-	m = Integer((const byte *)message.data(), message.size());
-	std::cout << "m: " << hex << m << "\n";
+	m = Integer((const byte *)tempmessage.data(), tempmessage.size());
+	//m = Integer(message.c_str());
+	std::cout << "m: " << m << "\n";
 
-	// Encrypt
+/*	// Encrypt
 	c = pubKey.ApplyFunction(m);
-	std::cout << "c: " << hex << c << "\n";
+	std::cout << "c: " << c << "\n";
 
 	// Decrypt
 	r = privKey.CalculateInverse(prng, c);
-	std::cout << "r: " << hex << r << "\n";
+	std::cout << "r: " << r << "\n";
 
 	// Round trip the message
 	size_t req = r.MinEncodedSize();
@@ -615,22 +646,72 @@ void GenerateKeyPairForNode(int nodeIndex)
 
 	std::cout << "recovered: " << recovered << "\n";
 
+*/
 
-	RSA::PublicKey pubKey1;
-	pubKey1.Initialize(n, e);
+	//convert m to str and try converting back
 
-	std::string pubKeyString2, encodedpub2;
+	c = pubKey.ApplyFunction(m);
+	std::cout << "c: " << c << "\n";
 
-	pubKey1.Save(CryptoPP::StringSink(pubKeyString2).Ref());
+	std::ostringstream s;
+    	s<<c;
+    	std::string ss(s.str());
+	appendedCipherText<<c;
+	std::cout<<"mod c : "<<ss<<"\n";
 
-	StringSource( pubKeyString2, true,
-		    new HexEncoder(
-			new StringSink( encodedpub2 )
-		    ) // HexEncoder
-		);
-	std::cout<<"Key : "<< encodedpub2<<"\n";
+	//Integer modm(ss.c_str());
+	//std::cout<<"mod m 2: "<<modm<<"\n";
+
+	
+
 	}
 
+	
+	std::cout<<"Appended cipher text"<< appendedCipherText.str()<<"\n";
+	std::string cipherText = appendedCipherText.str();
+	std::vector<std::string> cipherTextVector;
+	int complete = 1;
+	std::string tempStr ;
+	while(complete)
+	{  
+		std::size_t found = cipherText.find(".");
+		if (found!=std::string::npos)
+		{		
+		    	std::cout << "first '.' found at: " << found << '\n';
+			tempStr = cipherText.substr(0,found+1);
+			cipherText = cipherText.substr(found+1);
+			cipherTextVector.push_back(tempStr);
+		}
+		else
+		{
+			complete = 0;		
+			tempStr = cipherText;
+		}
+		std::cout<<"Temp str : "<<tempStr<<"\n";
+	}
+
+	std::vector<std::string>::iterator itr2;
+	std::ostringstream plainTextStream;
+	std::string plainText;
+	for ( itr2 = cipherTextVector.begin(); itr2 != cipherTextVector.end(); ++itr2 )
+	{
+
+	std::string text = *(itr2);
+	Integer cint (text.c_str());	
+	r = privKey.CalculateInverse(prng, cint);
+	std::cout << "r: " << r << "\n";
+
+	// Round trip the message
+	size_t req = r.MinEncodedSize();
+	recovered.resize(req);
+	r.Encode((byte *)recovered.data(), recovered.size());
+	plainTextStream<<recovered;
+	std::cout << "recovered   111: " << recovered << "\n";
+	}
+	plainText = plainTextStream.str();
+	std::cout<< "Plaiin text retrieved : "<<plainText<<"\n";
+	
+}
 }	
 
 int main (int argc, char *argv[])
