@@ -29,7 +29,7 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 		MessageLength = (int)strlen(Message.c_str()) ;
 		totalTimeStart = Simulator::Now();  	
 		DCNET(socket, 0); //- working
-		std::cout<<"Message in binary format\n";
+		//std::cout<<"Message in binary format\n";
 		//std::cout<<Message;
 		//decode_binary(Message.c_str());  - correctly working
 		//decode_binary(sharedMessage.str().c_str()); - is also working
@@ -42,19 +42,27 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 		// Generate a random key	
 		AESrnd.GenerateBlock( AESkey, AESkey.size() );
 		std::string AESKey_String = hexStr(AESkey.BytePtr(), AESkey.SizeInBytes());
-
-
+		appUtil->putAESKeyInMap(senderNode,AESkey);
+		std::cout<<"************Actual sent AES key : "<<AESKey_String<<"\n";
 		std::string sendPublicKey, encodedPublicKey;
 		//node A public key
 		appUtil->getShortLivedPublicKeyforMsgIdFromMap(senderNode,atoi(sourceMessageId.c_str())).Save(CryptoPP::StringSink(sendPublicKey).Ref());
 
-		StringSource( sendPublicKey, true,
+	/*	StringSource( sendPublicKey, true,
 		    new HexEncoder(
 			new StringSink( encodedPublicKey )
 		    ) // HexEncoder
 		);
-
-		Message = encoded_message_set(sourceControl, sourceMessageId, AESKey_String, encodedPublicKey);
-		MessageLength = (int)strlen(Message.c_str()) ;		
+*/
+		Message = encoded_message_set(sourceControl, sourceMessageId, AESKey_String, sendPublicKey);
+		MessageLength = (int)strlen(Message.c_str()) ;	
+		std::cout<<"message : "<<Message<<"\n";
+		DCNET(socket, 0);	
+		
+				
+	}
+	if(sourceControl == MESSAGE_REPLY)
+	{
+		
 	}
 }
