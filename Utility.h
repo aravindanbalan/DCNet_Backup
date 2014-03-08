@@ -29,7 +29,23 @@ std::string recovered;
 
 std::string encrypt_message_public_key(std::string input, std::string publicKey)
 {
-	return input ; //need to be impelemented using AES decryption key
+	std::string cipher;
+	CryptoPP::RSA::PublicKey pub;
+
+	std::cout<<"********************Decoded Public key : "<< publicKey<<"\n\n";	
+	
+    	//pub.Load(const_cast<BufferedTransformation &>(*(CryptoPP::StringSource(publicKey, true).AttachedTransformation())));
+
+	 CryptoPP::StringSource pubStr(publicKey, true, new CryptoPP::HexDecoder);               
+         pub.BERDecodePublicKey(pubStr,false,publicKey.length()); 
+       
+	CryptoPP::RSAES_OAEP_SHA_Encryptor e(pub);
+	StringSource ss1(input, true,
+	    new PK_EncryptorFilter(rnd, e,
+		new StringSink(cipher)
+	   ) // PK_EncryptorFilter
+	);
+	return cipher; 
 }
 
 std::string submit_initiate_message(std::string key, std::string control, std::string messageid, std::string message)
@@ -121,6 +137,8 @@ std::string  encoded_message_set(std::string control,std::string msgid,std::stri
 	std::string encoded_message;
 	encoded_message=msgid+key;
     encoded_message=control + encrypt_message_public_key(encoded_message, publicKey);
+
+	std::cout<<"************stage 2 : encoded message : "<<encoded_message<<"\n";
     std::vector<char> binary= convert_to_binary(encoded_message.c_str());
 	std::string binaryresult(binary.begin(),binary.end()); 
     return binaryresult;
@@ -173,9 +191,20 @@ std::string decrypt_message_AES(std::string input)
 }
 
 
-std::string decrypt_message_private_key(std::string input)
+std::string decrypt_message_private_key(int recvNode, std::string input)
 {
-	return input ; //need to be impelemented using AES decryption key
+	std::string plainText;
+	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
+	RSA::PrivateKey priv = appUtil->getShortLivedPrivateKeyFromMap(recvNode);
+	RSAES_OAEP_SHA_Decryptor d(priv);
+
+	StringSource ss2(input, true,
+    new PK_DecryptorFilter(rnd, d,
+        new StringSink(plainText)
+   ) // PK_DecryptorFilter
+);	
+
+	return plainText ; //need to be impelemented using AES decryption key
 }
 
 int decode_binary(int recvNode, const char *input)
@@ -190,6 +219,7 @@ int decode_binary(int recvNode, const char *input)
 int decrypt_message(int recvNode, std::string input)
 {
 	std::string messageid;
+	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 	std::string message_type= input.substr(0,MESSAGE_TYPE_LENGTH);
     std::cout <<"message_type: " << message_type << "\n";
 	if(message_type==MESSAGE_REPLY) {
@@ -209,7 +239,7 @@ int decrypt_message(int recvNode, std::string input)
 	//		std::cout << "sending to decrypt the input with private key " << "\n";
         //    std::cout << "successfully decrypting with my private key" << "\n";
          //   std::cout << "got message id and aes key" << "\n";
-       		std::string message_id_aes_key= decrypt_message_private_key(input.substr(MESSAGE_TYPE_LENGTH));
+       		std::string message_id_aes_key= decrypt_message_private_key(recvNode, input.substr(MESSAGE_TYPE_LENGTH));
             //now get the aes key and messageid and store it the way app wants
            
 			messageid= message_id_aes_key.substr(0, MAX_MESSAGE_ID_LENGTH);
@@ -219,6 +249,7 @@ int decrypt_message(int recvNode, std::string input)
 
 		SecByteBlock aesKey((byte *)aes_key.c_str(),aes_key.size());
 		
+		appUtil->putAESKeyInMap(recvNode,aesKey);
 
         }
         else {
@@ -234,7 +265,7 @@ int decrypt_message(int recvNode, std::string input)
 		    std::cout << "public key is: " << public_key <<"\n";
 
 			//store public key in map 
-		ApplicationUtil *appUtil = ApplicationUtil::getInstance();
+		
 		std::string decodedPublic_Key;
 		StringSource( public_key, true,
 		    new HexDecoder(
@@ -244,7 +275,9 @@ int decrypt_message(int recvNode, std::string input)
 		
 		//assuming that this is working from str to publickey class object    
 		CryptoPP::RSA::PublicKey pub;
-    		pub.Load(const_cast<BufferedTransformation &>(*(CryptoPP::StringSource(decodedPublic_Key, true).AttachedTransformation())));	
+    		//pub.Load(const_cast<BufferedTransformation &>(*(CryptoPP::StringSource(decodedPublic_Key, true).AttachedTransformation())));	
+	 	CryptoPP::StringSource pubStr(decodedPublic_Key, true, new CryptoPP::HexDecoder);               
+           	pub.BERDecodePublicKey(pubStr,false,decodedPublic_Key.length()); 
 			
 		//put in msgid-Publickey map
 		appUtil->putShortLivedPublicKeyforMsgIdInMap(recvNode, atoi(messageid.c_str()),pub);
