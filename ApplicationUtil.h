@@ -14,6 +14,9 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include "crypto++/base64.h"
+#include <iomanip>
+using std::hex;
 #include <string>
 #include "crypto++/aes.h"
 #include "crypto++/cryptlib.h"
@@ -60,6 +63,10 @@ Integer g("0xA4D1CBD5C3FD34126765A442EFB99905F8104DD258AC507F"
 		"855E6EEB22B3B2E5");
 
 Integer q("0xF518AA8781A8DF278ABA4E7D64B7CB9D49462353");
+
+
+Integer n("0xbeaadb3d839f3b5f"), e("0x11"), d("0x21a5ae37b9959db9");
+
 
 TypeId tid;
 Ipv4InterfaceContainer i;
@@ -155,6 +162,7 @@ class ApplicationUtil
 	map<int,RSA::PublicKey> shortLivedPublicKey;
 	map<int,RSA::PrivateKey> shortLivedPrivateKey;
 	std::vector<SecByteBlock> AESKeysReceived;
+	map<int, std::vector<SecByteBlock> > AESKeyMap;
 	map<int, RSA::PublicKey> msgIdPublicKeyPairSubMap;
 	map<int, map<int, RSA::PublicKey> > msgIdPublicKeyPairMap;
 
@@ -203,9 +211,9 @@ public:
 	void putShortLivedPublicKeyInMap(int nodeId, RSA::PublicKey key);
 	RSA::PrivateKey getShortLivedPrivateKeyFromMap(int nodeId);
 	void putShortLivedPrivateKeyInMap(int nodeId, RSA::PrivateKey key);
-	std::vector<SecByteBlock> getAESKeyVector();
-	void addAESKeyInVector(SecByteBlock key);
-
+	std::vector<SecByteBlock> getAESKeyVector(int nodeId);
+	void putAESKeyInMap(int nodeId, SecByteBlock key);
+	
 
 	void putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, RSA::PublicKey value);
 	map<int, RSA::PublicKey> getShortLivedPublicKeyforMsgIdSubMap(int nodeId);
@@ -504,14 +512,26 @@ void ApplicationUtil::putShortLivedPrivateKeyInMap(int nodeId, RSA::PrivateKey k
 }
 
 
-std::vector<SecByteBlock> ApplicationUtil::getAESKeyVector()
+std::vector<SecByteBlock> ApplicationUtil::getAESKeyVector(int nodeId)
 {
-	return AESKeysReceived;
+	map<int,std::vector<SecByteBlock> >::iterator p;
+	p = AESKeyMap.find(nodeId);
+	return p->second;
 }
-	
-void ApplicationUtil::addAESKeyInVector(SecByteBlock key)
+
+void ApplicationUtil::putAESKeyInMap(int nodeId, SecByteBlock key)
 {
-	AESKeysReceived.push_back(key);
+	
+	map<int,std::vector<SecByteBlock> >::iterator p;
+	p = AESKeyMap.find(nodeId);	
+	if(p != AESKeyMap.end())
+		p->second.push_back(key);
+	else
+	{
+		std::vector<SecByteBlock> tempVector;
+		tempVector.push_back(key);
+		AESKeyMap.insert(pair<int,std::vector<SecByteBlock> >(nodeId,tempVector));
+	}
 }
 
 void ApplicationUtil::putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, RSA::PublicKey value)
