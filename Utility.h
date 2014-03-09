@@ -7,11 +7,6 @@
 #define MESSAGE_SET      "SET"
 #define MESSAGE_REPLY     "REP"
 
-
-
-SecByteBlock AESkey(0x00, AES::DEFAULT_KEYLENGTH);
-byte AESiv[AES::BLOCKSIZE];
-AutoSeededRandomPool AESrnd;
 std::vector<char> convert_to_ascii(const char*);   //function for converting ASCII to Binary
 std::vector<char> convert_to_binary(const char*);   //function for converting Binary to ASCII
 std::vector<char>  get_message(std::string control,std::string msgid, std::string message,std::string publickey) ;
@@ -22,7 +17,7 @@ std::string encoded_message_initiate(std::string control,std::string msgid,std::
 void submit_initiate_message(void);
 std::string  encoded_message_set(std::string control,std::string msgid,std::string key, std::string publicKey) ;
 std::string  encoded_message_reply(std::string control,std::string msgid, std::string message,std::string key) ;
-int msgL =0;
+
 std::string cipher,encoded;
 std::string recovered;
 
@@ -156,85 +151,11 @@ std::string encrypt_message_public_key(std::string input, std::string publicKey)
 	std::string cipher;
 	cipher = process_input_to_cipher(input, pub);
 
-
-	// CryptoPP::StringSource pubStr(publicKey, true, new CryptoPP::HexDecoder);               
-        // pub.BERDecodePublicKey(pubStr,false,publicKey.length()); 
-       
-	
-	//**********************************remove later
-
-	std::cout<<"---------------------------------------\n";
-	
-	decrypt_message_private_key( 0, cipher);
-
-	std::cout<<"---------------------------------------\n";
-	
 	return cipher; 
 }
 
-std::string submit_initiate_message(std::string key, std::string control, std::string messageid, std::string message)
+std::string encrypt_with_aes_key(std::string message, SecByteBlock AESkey)
 {
-//	std::string key=                                                                         "ab359aa76a6773ed7a93b214db0c25d0160817b8a893c001c761e198a3694509ebe8"
-//"7a5313e0349d95083e5412c9fc815bfd61f95ddece43376550fdc624e92ff38a415783b9726120"
-//"4e05d65731bba1ccff0e84c8cd2097b75feca1029261ae19a389a2e15d2939314b184aef707b82"
-//"eb94412065181d23e04bf065f4ac413fh";
-//	std::string control=INITIATE_MESSAGE;
-  //  std::string messageid="000-000-0001";
- //   std::string message="Hello I am working on Encrypting and decrypting data. Do you like this. I do. This is very interesting project and perhaps you can submit it to conference";
-    
-    //std::cout<< "Length : "<<binaryresult.length()<<"\n";
-    //std::cout << "binary representation of a std::string :" << binaryresult << "\n";
-
-	std::string binaryresult = encoded_message_initiate(control,messageid,message,key);   // now you get a message and send this message using DCNET
-  //  decode_binary(binaryresult.c_str());
-	return binaryresult;   
-}
-
-void submit_set_message(void)
-{
-	std::string control=MESSAGE_SET;
-    std::string messageid="000-000-0001";
-    std::string key="B374A26A71490437AA024E4FADD5B497FDFF1A8EA6FF12F6FB65AF2720B59CCF";
-    std::string message = "";
-  //  std::string binaryresult=encoded_message_set(control,messageid,key);   // now you get a message and send this message using DCNET
-  //  decode_binary(binaryresult.c_str());  
-}
-
-void submit_reply_message(void)
-{
-	std::string control=MESSAGE_REPLY;
-    std::string messageid="000-000-0001";
-    std::string key="";
-    std::string message = "Now I am communicating privately with some node and nobody can infer this message";
-    std::string binaryresult=encoded_message_reply(control,messageid,message,key);   // now you get a message and send this message using DCNET
-	//std::cout<<"****Binary result  : "<<binaryresult<<"\n";
-   // decode_binary(binaryresult.c_str());  
-}
-
-/*
-int main(void)
-{
-    
-	submit_initiate_message();
-	std::cout<<"\n";
-    submit_set_message();
-std::cout<<"\n";
-    submit_reply_message(); 
-   
-    return 0;
-}
-
-*/
-std::string encrypt_with_aes_key(std::string message)
-{
-	// Generate a random key	
-	AESrnd.GenerateBlock( AESkey, AESkey.size() );
-	// Generate a random IV
-	AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
-
-	 
-
-	msgL = message.length() + 1;
 
 	CFB_Mode<AES>::Encryption cfbEncryption;
 	cfbEncryption.SetKeyWithIV( AESkey, AESkey.size(), AESiv );
@@ -272,12 +193,13 @@ std::cout<<"AES key : "<<key<<"\n";
 	std::string binaryresult(binary.begin(),binary.end()); 
     return binaryresult;
 }
-std::string  encoded_message_reply(std::string control,std::string msgid, std::string message,std::string key) 
+std::string  encoded_message_reply(std::string control,std::string msgid, std::string message,SecByteBlock key) 
 {   
 	std::string encoded_message;
 	encoded_message=msgid+message;
-    encoded_message=control + encrypt_with_aes_key(encoded_message);
-	//std::cout <<"***********Total Encoded message : "<<encoded_message<<"\n\n";
+	std::cout<<"***************************come on : "<<encoded_message<<"\n";
+    encoded_message=control + encrypt_with_aes_key(encoded_message, key);
+	std::cout <<"***********Total reply message : "<<encoded_message<<"\n\n";
 
     std::vector<char> binary= convert_to_binary(encoded_message.c_str());
 	std::string binaryresult(binary.begin(),binary.end()); 
@@ -295,27 +217,35 @@ std::string encoded_message_initiate(std::string control,std::string msgid,std::
     return binaryresult;
 }
 
-std::string decrypt_message_AES(std::string input)
+std::string decrypt_message_AES(std::string input, SecByteBlock AESkey)
 {
 	
 	CFB_Mode<AES>::Decryption cfbDecryption;
 	cfbDecryption.SetKeyWithIV( AESkey, AESkey.size(), AESiv );
 	//cfbDecryption.ProcessData((byte*)input.c_str(), (byte*)input.c_str(), msgL);
 //std::cout<<"*************input before hex decoding : "<< input<<"\n\n";
+
 	std::string decodedcipher;
 	StringSource( input, true,
 	    new HexDecoder(
 		new StringSink( decodedcipher )
 	    ) // HexDecoder
 	);
-//std::cout<<"*************input after hex decoding : "<< input<<"\n\n";
-
+	
 	StringSource( decodedcipher, true, 
 		new StreamTransformationFilter( cfbDecryption,
 		    new StringSink( recovered )
 		) // StreamTransformationFilter
 	    );
 
+	//temp fix - as the decrypted plain text has some 2 junk characters in teh front
+//	recovered = recovered.substr(3); 
+	std::size_t found = recovered.find('-');
+		if (found!=std::string::npos)
+		{
+			recovered = recovered.substr(found - 3);
+		}	
+std::cout<<"*************recovered : "<< recovered<<"\n\n";
 	return recovered; 
 }
 
@@ -330,6 +260,31 @@ std::string decode_binary(int recvNode, const char *input)
    return decrypt_message(recvNode, asciiresult);
 }
 
+
+//Brute force method - iterate thru each used AES key and try to decrypt
+std::string process_Decrypted_Message(int recvNode, std::string cipherText)
+{
+	std::cout<<"Cipher text : come on : "<<cipherText<< "    "<< cipherText.substr(MESSAGE_TYPE_LENGTH)<< "\n";
+	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
+	std::string messageid;
+	std::vector<SecByteBlock> usedAESKeyVector = appUtil->getUsedAESKeyVector(recvNode);
+	std::vector<SecByteBlock>::iterator itr;
+	std::string receivedPlainText = "";
+	for ( itr = usedAESKeyVector.begin(); itr != usedAESKeyVector.end(); ++itr )
+	{
+		SecByteBlock currentKey = *(itr);
+		receivedPlainText = decrypt_message_AES(cipherText.substr(MESSAGE_TYPE_LENGTH), currentKey);
+		std::cout<<"(((((((((((((((((((((((((( Received plain text : "<< receivedPlainText<<"\n";
+		if(receivedPlainText.length() < MAX_MESSAGE_ID_LENGTH )
+			continue;
+		messageid= receivedPlainText.substr(0, MAX_MESSAGE_ID_LENGTH);
+		std::size_t found = messageid.find('-');
+		if (found!=std::string::npos)
+    			return receivedPlainText;
+	}
+	return receivedPlainText;
+}
+
 std::string decrypt_message(int recvNode, std::string input)
 {
 	std::string messageid;
@@ -337,11 +292,14 @@ std::string decrypt_message(int recvNode, std::string input)
 	std::string message_type= input.substr(0,MESSAGE_TYPE_LENGTH);
     std::cout <<"message_type: " << message_type << "\n";
 	if(message_type==MESSAGE_REPLY) {
-		// first decrypt the data with AES and then get the msg id and Message
-		std::string decrypted_message=  decrypt_message_AES(input.substr(MESSAGE_TYPE_LENGTH));
-   //     std::cout << "sending to decrypt the input with aes key " << "\n";
-    //    std::cout << "successfully decrypting with my aes key" << "\n";
-     //   std::cout << "got message id and message" << "\n";
+		
+//decrypt wiht all the used AES keys
+
+	
+	
+	// first decrypt the data with AES and then get the msg id and Message
+		std::string decrypted_message=  process_Decrypted_Message(recvNode, input);
+
         messageid= decrypted_message.substr(0, MAX_MESSAGE_ID_LENGTH);
 		std::cout <<"message_id: " << messageid<<"\n";
 		unsigned found= decrypted_message.find(MESSAGE_END);
@@ -367,9 +325,11 @@ std::string decrypt_message(int recvNode, std::string input)
             std::string aes_key= message_id_aes_key.substr(MAX_MESSAGE_ID_LENGTH);
 			std::cout << "aes_key is: " << aes_key << "\n";
 
-		SecByteBlock aesKey((byte *)aes_key.c_str(),aes_key.size());
+//		SecByteBlock aesKey((byte *)aes_key.c_str(),AES::DEFAULT_KEYLENGTH);
+	//not able to convert from aes string format to secbyteblock. Using temporary fix using global AESkey variable- TODO
+	SecByteBlock aesKey = AESkey;
 		
-		appUtil->putAESKeyInMap(recvNode,aesKey);
+		appUtil->putReceivedAESKeyForMsgIdInMap(recvNode,messageid, aesKey);
 
         }
         else {
