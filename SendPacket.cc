@@ -42,23 +42,31 @@ static void AnonymousReceiverStep2()
 static void AnonymousReceiverStep3()
 {
 	std::cout<<"In anonymous Receiver step 3\n";
-	std::string replyMessage = "hi";
-	
-	//do it for all nodes - as all nodes try to decrypt with its AES keys
-	decode_binary(0, sharedMessage.str().c_str());
+	std::string replyMessage = "Hi this is aravind";
+	int replyNode = 0;
+	std::string replyControl= MESSAGE_REPLY;
+	std::string replyMessageId;
+		
+	Ptr<Socket> replySource = Socket::CreateSocket (c.Get (replyNode), tid);
+	replyMessageId = decode_binary(replyNode, sharedMessage.str().c_str());
+	SendMessageUsingDCNET(replySource, replyNode, replyControl, replyMessageId,replyMessage);
 }
+static void AnonymousReceiverStep4()
+{
+	int reply_receiving_node = 1;
+	std::string replyMessageId = decode_binary(reply_receiving_node, sharedMessage.str().c_str());
 
+	Simulator::Stop ();
+}
 static void procedureHandle(Ptr<Socket> socket)
 {
 	if(currentStep == 1)	//advance to next step 2
 		AnonymousReceiverStep2();
 	if(currentStep == 2)	//advance to next step 3
 		AnonymousReceiverStep3();
-	if(currentStep == 3)
-	{
-		//stop the simulation		
-       		Simulator::Stop ();
-	}
+	if(currentStep == 3)	//advance to next step 4
+		AnonymousReceiverStep4();
+	
 }
 
 //**************************Anonymous receiver steps*********************
@@ -366,7 +374,7 @@ void DisplayMessage(Ptr<Socket> socket)
     
     int bit = Message.at(rounds)-48 ;
 	
-	std::cout<<"Current Round : "<<rounds<<"\n";
+	//std::cout<<"Current Round : "<<rounds<<"\n";
     for(int index = 0; index < (int)numNodes ; index++)
     {
 
@@ -568,150 +576,58 @@ void GenerateKeyPairForNode(int nodeIndex)
 
 	if(nodeIndex==0)
 	{
-	AutoSeededRandomPool prng;
+
+		std::string input="Hi this is aravindan", cipher, encoded;
+		std::cout<<AES::DEFAULT_KEYLENGTH<<"\n";
+		std::cout<<AESkey.size()<<"\n";
+		AESrnd.GenerateBlock( AESkey, AESkey.size());
+		// Generate a random IV
+		AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
+
+		std::string AESKey_String = hexStr(AESkey.BytePtr(), AESkey.SizeInBytes());
+		std::cout<<"************Actual sent AES key : "<<AESKey_String<<"\n";	
+
+		CFB_Mode<AES>::Encryption cfbEncryption;
+		cfbEncryption.SetKeyWithIV( AESkey, AESkey.size(), AESiv );
+
 	
-		//Integer n("0xbeaadb3d839f3b5f"), e("0x11"), d("0x21a5ae37b9959db9");
+		StringSource( input, true, 
+			new StreamTransformationFilter( cfbEncryption,
+			    new StringSink( cipher )
+			) // StreamTransformationFilter      
+		    );
+	
+			StringSource( cipher, true,
+			    new HexEncoder(
+				new StringSink( encoded )
+			    ) // HexEncoder
+			); // StringSource
+		std::cout << "****************Hex encoded text: " << encoded <<"\n\n";
 
-	RSA::PrivateKey privKey;
-	privKey.Initialize(n, e, d);
+	
+		SecByteBlock aesKey = AESkey;
 
-	RSA::PublicKey pubKey;
-	pubKey.Initialize(n, e);
+		std::string AESKey_String1 = hexStr(aesKey.BytePtr(), aesKey.SizeInBytes());
+		std::cout<<"Received AES key : "<<AESKey_String1<<"\n";	
 
-	/////////////////////////////////////////////////////////
+		CFB_Mode<AES>::Decryption cfbDecryption;
+		cfbDecryption.SetKeyWithIV( aesKey, AESkey.size(), AESiv );
 
-	std::string pubKeyString1, encodedPub1;
-
-	pubKey.Save(CryptoPP::StringSink(pubKeyString1).Ref());
-
-	StringSource( pubKeyString1, true,
-		    new HexEncoder(
-			new StringSink( encodedPub1 )
-		    ) // HexEncoder
+		std::string decodedcipher, recovered;
+		StringSource( encoded, true,
+		    new HexDecoder(
+			new StringSink( decodedcipher )
+		    ) // HexDecoder
 		);
-
-	std::cout<<"Key : "<< encodedPub1<<"\n";
-	std::string message, recovered;
-	Integer m, c, r;
 	
-	message = "secret11223344556677";
-	std::cout << "message: " << message << "\n";
-	
-	//int mod = message.length() / 8;
-	std::vector<std::string> messageVector;
-	int done = 1;
-	while(done)
-	{
-		std::string temp;
-		if(message.length() > 8)
-			temp = message.substr(0,8);
-		else 
-			temp = message.substr(0);
-		messageVector.push_back(temp);
-		//std::cout<<"temp : "<<temp<<"\n";
-		if((message.length() - 8) > 8)
-			message = message.substr(8);
-		else
-		{
-			done = 0;
-			message = message.substr(8);
-			messageVector.push_back(message);
-		}
-	}
-	
-	std::ostringstream appendedCipherText;
-	std::vector<std::string>::iterator itr;
-	for ( itr = messageVector.begin(); itr != messageVector.end(); ++itr )
-	{
-		std::cout<<"temp : "<<*(itr)<<"\n";	
-		
-	std::string tempmessage = *(itr);
-	// Treat the message as a big endian array
-	m = Integer((const byte *)tempmessage.data(), tempmessage.size());
-	//m = Integer(message.c_str());
-	std::cout << "m: " << m << "\n";
-
-/*	// Encrypt
-	c = pubKey.ApplyFunction(m);
-	std::cout << "c: " << c << "\n";
-
-	// Decrypt
-	r = privKey.CalculateInverse(prng, c);
-	std::cout << "r: " << r << "\n";
-
-	// Round trip the message
-	size_t req = r.MinEncodedSize();
-	recovered.resize(req);
-	r.Encode((byte *)recovered.data(), recovered.size());
-
-	std::cout << "recovered: " << recovered << "\n";
-
-*/
-
-	//convert m to str and try converting back
-
-	c = pubKey.ApplyFunction(m);
-	std::cout << "c: " << c << "\n";
-
-	std::ostringstream s;
-    	s<<c;
-    	std::string ss(s.str());
-	appendedCipherText<<c;
-	std::cout<<"mod c : "<<ss<<"\n";
-
-	//Integer modm(ss.c_str());
-	//std::cout<<"mod m 2: "<<modm<<"\n";
-
-	
-
+	StringSource( decodedcipher, true, 
+		new StreamTransformationFilter( cfbDecryption,
+		    new StringSink( recovered )
+		) // StreamTransformationFilter
+	    );
+		std::cout<<"*************recovered : "<< recovered<<"\n\n";
 	}
 
-	
-	std::cout<<"Appended cipher text"<< appendedCipherText.str()<<"\n";
-	std::string cipherText = appendedCipherText.str();
-	std::vector<std::string> cipherTextVector;
-	int complete = 1;
-	std::string tempStr ;
-	while(complete)
-	{  
-		std::size_t found = cipherText.find(".");
-		if (found!=std::string::npos)
-		{		
-		    	std::cout << "first '.' found at: " << found << '\n';
-			tempStr = cipherText.substr(0,found+1);
-			cipherText = cipherText.substr(found+1);
-			cipherTextVector.push_back(tempStr);
-		}
-		else
-		{
-			complete = 0;		
-			tempStr = cipherText;
-		}
-		std::cout<<"Temp str : "<<tempStr<<"\n";
-	}
-
-	std::vector<std::string>::iterator itr2;
-	std::ostringstream plainTextStream;
-	std::string plainText;
-	for ( itr2 = cipherTextVector.begin(); itr2 != cipherTextVector.end(); ++itr2 )
-	{
-
-	std::string text = *(itr2);
-	Integer cint (text.c_str());	
-	r = privKey.CalculateInverse(prng, cint);
-	std::cout << "r: " << r << "\n";
-
-	// Round trip the message
-	size_t req = r.MinEncodedSize();
-	recovered.resize(req);
-	r.Encode((byte *)recovered.data(), recovered.size());
-	plainTextStream<<recovered;
-	std::cout << "recovered   111: " << recovered << "\n";
-	}
-	plainText = plainTextStream.str();
-	std::cout<< "Plaiin text retrieved : "<<plainText<<"\n";
-	
-}
 }	
 
 int main (int argc, char *argv[])
@@ -830,7 +746,6 @@ int main (int argc, char *argv[])
 //****************************anonymous receiver part*******************************************
 
 // Generate a random IV and a common IV
-AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
 
 
 //step 1 - Node A sends Message to all nodes using DCNet
