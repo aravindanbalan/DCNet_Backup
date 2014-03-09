@@ -38,11 +38,14 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 
 	if(sourceControl == MESSAGE_SET)
 	{
-		
+		 
 		// Generate a random key	
-		AESrnd.GenerateBlock( AESkey, AESkey.size() );
+		AESrnd.GenerateBlock( AESkey, AESkey.size());
+		// Generate a random IV
+		AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
+
 		std::string AESKey_String = hexStr(AESkey.BytePtr(), AESkey.SizeInBytes());
-		appUtil->putAESKeyInMap(senderNode,AESkey);
+		appUtil->putUsedAESKeyInMap(senderNode,AESkey);
 		std::cout<<"************Actual sent AES key : "<<AESKey_String<<"\n";
 		std::string sendPublicKey, encodedPublicKey;
 		//node A public key
@@ -65,6 +68,12 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 	}
 	if(sourceControl == MESSAGE_REPLY)
 	{
+		SecByteBlock senderAESKey = appUtil->getReceivedAESKeyForMsgId(senderNode, sourceMessageId);
+		Message = encoded_message_reply(sourceControl, sourceMessageId, sourceMessage, senderAESKey);
+		MessageLength = (int)strlen(Message.c_str()) ;	
+		std::cout<<"message : "<<Message<<"\n";
+		sharedMessage.str("");
+		DCNET(socket, 0);
 		
 	}
 }
