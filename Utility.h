@@ -111,7 +111,7 @@ std::string decrypt_message_private_key(int recvNode, std::string cipherText)
 
 	RSA::PrivateKey privKey = process_privateKey(priv);
 	plainText = process_cipher_to_plainText(cipherText,privKey);
-	return plainText ; //need to be impelemented using AES decryption key
+	return plainText ; 
 }
 
 std::string encrypt_message_public_key(std::string input, std::string publicKey)
@@ -196,7 +196,6 @@ std::string decrypt_message_AES(std::string input, SecByteBlock AESkey)
 
 	//temp fix - as the decrypted plain text has some junk characters in teh front - TODO assuming messagae format to be 000-ddd-1111 
 	std::size_t found = recovered.find('-');
-	std::cout<<"Found : "<<recovered << "   : " <<found <<"\n";
 	if (found!=std::string::npos)
 	{
 		recovered = recovered.substr(found - 3);
@@ -212,23 +211,24 @@ std::string decode_binary(int recvNode, const char *input)
 }
 
 //Brute force method - iterate thru each used AES key and try to decrypt
+
+
 std::string process_Decrypted_Message(int recvNode, std::string cipherText)
 {
+
 	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 	std::string messageid;
-	std::vector<SecByteBlock> usedAESKeyVector = appUtil->getUsedAESKeyVector(recvNode);
+	std::vector<SecByteBlock> receivedAESKeyVector = appUtil->getReceivedAESKeyVector(recvNode);
 	std::vector<SecByteBlock>::iterator itr;
 	std::string receivedPlainText = "";
-	for ( itr = usedAESKeyVector.begin(); itr != usedAESKeyVector.end(); ++itr )
+	for ( itr = receivedAESKeyVector.begin(); itr != receivedAESKeyVector.end(); ++itr )
 	{
 		SecByteBlock currentKey = *(itr);
-		std::cout<<"Received cipher text :"<< cipherText<<"\n";
+		
 		receivedPlainText = decrypt_message_AES(cipherText, currentKey);		
-		std::cout<<"Received Plain text :"<< receivedPlainText<<"\n";
 		if(receivedPlainText.length() < MAX_MESSAGE_ID_LENGTH )
 			continue;
 		messageid= receivedPlainText.substr(0, MAX_MESSAGE_ID_LENGTH);
-	std::cout<<"Msg id :"<< messageid<<"\n";
 		std::size_t found = messageid.find('-');
 		if (found!=std::string::npos)
     			return receivedPlainText;
@@ -241,11 +241,9 @@ std::string decrypt_message(int recvNode, std::string input)
 	std::string messageid;
 	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 	std::string message_type= input.substr(0,MESSAGE_TYPE_LENGTH);
-	std::cout<<"Input : "<<input<<"\n";
 	if(message_type==MESSAGE_REPLY) 
 	{
-		// first decrypt the data with all used AES keys and then get the msg id and Message
-		std::cout<<"Inside reply message "<<MESSAGE_TYPE_LENGTH<<"   "<<input.length()<<"\n";
+		// first decrypt the data with all received AES keys and then get the msg id and Message
 		std::string decrypted_message=  process_Decrypted_Message(recvNode, input.substr(MESSAGE_TYPE_LENGTH));
         	messageid= decrypted_message.substr(0, MAX_MESSAGE_ID_LENGTH);
 		
@@ -261,7 +259,7 @@ std::string decrypt_message(int recvNode, std::string input)
 		
 		//not able to convert from aes string format to secbyteblock. Temporary fix using global AESkey variable- TODO
 		SecByteBlock aesKey = AESkey;
-		appUtil->putReceivedAESKeyForMsgIdInMap(recvNode,messageid, aesKey);
+		appUtil->putReceivedAESKeyInMap(recvNode, aesKey);
 		std::cout<<"Node "<<recvNode<<" received AES key\n";
 	 }
 	else 
@@ -279,7 +277,7 @@ std::string decrypt_message(int recvNode, std::string input)
 			new StringSink( decodedPublic_Key )
 		    ) // HexDecoder
 		);
-		appUtil->putShortLivedPublicKeyforMsgIdInMap(recvNode, atoi(messageid.c_str()),decodedPublic_Key);
+		appUtil->putShortLivedPublicKeyforMsgIdInMap(recvNode, messageid,decodedPublic_Key);
 	}
 
 	return messageid;
