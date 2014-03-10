@@ -186,16 +186,16 @@ class ApplicationUtil
 	map<int,std::string> shortLivedPublicKey;
 	map<int,std::string> shortLivedPrivateKey;
 	
-	map<int, std::vector<SecByteBlock> > UsedAESKeyMap;
-	map<int, map <std::string, SecByteBlock> > ReceivedAESKeyForMsgIdMap;	
+	map<int, std::vector<SecByteBlock> > ReceivedAESKeyMap;
+	//map<int, map <std::string, SecByteBlock> > ReceivedAESKeyForMsgIdMap;
+	map<int, map <std::string, SecByteBlock> > SentAESKeyForMsgIdMap;	
 	
-	map<int, std::string> msgIdPublicKeyPairSubMap;
-	map<int, map<int, std::string> > msgIdPublicKeyPairMap;
+	map<std::string, std::string> msgIdPublicKeyPairSubMap;
+	map<int, map<std::string, std::string> > msgIdPublicKeyPairMap;
 
 public:
 
 	void writeOutputToFile(char* fileName, int option, int numNodes,int length, double latency, double totalTime );
-	//static int publicKeyPairCount;
 	int getDhAgreedLength()
 	{
 		return dhAgreedLength;
@@ -237,16 +237,18 @@ public:
 	void putShortLivedPublicKeyInMap(int nodeId, std::string key);
 	std::string getShortLivedPrivateKeyFromMap(int nodeId);
 	void putShortLivedPrivateKeyInMap(int nodeId,std::string key);
-	std::vector<SecByteBlock> getUsedAESKeyVector(int nodeId);
-	void putUsedAESKeyInMap(int nodeId, SecByteBlock key);
+	std::vector<SecByteBlock> getReceivedAESKeyVector(int nodeId);
+	void putReceivedAESKeyInMap(int nodeId, SecByteBlock key);
 
-	SecByteBlock getReceivedAESKeyForMsgId(int nodeId, std::string msgId);
-	void putReceivedAESKeyForMsgIdInMap(int nodeId, std::string msgId, SecByteBlock key);
+	//SecByteBlock getReceivedAESKeyForMsgId(int nodeId, std::string msgId);
+	//void putReceivedAESKeyForMsgIdInMap(int nodeId, std::string msgId, SecByteBlock key);
+	SecByteBlock getSentAESKeyForMsgId(int nodeId, std::string msgId);
+	void putSentAESKeyForMsgIdInMap(int nodeId, std::string msgId, SecByteBlock key);
 	
 
-	void putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, std::string value);
-	map<int, std::string> getShortLivedPublicKeyforMsgIdSubMap(int nodeId);
-	std::string getShortLivedPublicKeyforMsgIdFromMap(int nodeId, int msgId);
+	void putShortLivedPublicKeyforMsgIdInMap(int nodeId, std::string msgId, std::string value);
+	map<std::string, std::string> getShortLivedPublicKeyforMsgIdSubMap(int nodeId);
+	std::string getShortLivedPublicKeyforMsgIdFromMap(int nodeId, std::string msgId);
 
 };
 bool ApplicationUtil::instanceFlag = false;
@@ -256,7 +258,6 @@ ApplicationUtil* ApplicationUtil::getInstance()
 {
 	if(!instanceFlag)
         {		
-		//publicKeyPairCount = 0;
 		appUtil = new ApplicationUtil();
 		instanceFlag = true;
 	}
@@ -395,8 +396,7 @@ void ApplicationUtil::putSecretBitInGlobalMap(int nodeId, int destNodeId, int va
 		map<int,int> tempMap;	
 		tempMap.insert(pair<int,int>(destNodeId,value));
 		dhSecretBitMapGlobal.insert(pair<int,map<int,int> >(nodeId,tempMap));
-	}	
-	
+	}		
 }					
 
 map<int,int> ApplicationUtil::getSecretBitSubMap(int nodeId)
@@ -413,26 +413,20 @@ void ApplicationUtil::eraseSecretBitMapGlobal()
 	 dhSecretBitMapGlobal.erase ( p, dhSecretBitMapGlobal.end() );
 }
 
-//swati
 void ApplicationUtil::putAnnouncementInGlobalMap(int nodeId, int value)
 {
-
-	//std::cout<<"Node "<<nodeId<<" stores "<<value<<"\n";
-
 	map<int,int>::iterator p;
 	p = announcement.find(nodeId);
 	if(p != announcement.end())
 		announcement[nodeId] = value;
 	else
 	announcement.insert(pair<int,int>(nodeId,value));
-//	std::cout<<"Finds "<<ApplicationUtil::getAnnouncement(nodeId)<<"\n";
 }					
 
 int ApplicationUtil::getAnnouncement(int nodeId)
 {
 	map<int,int>::iterator p;
 	p = announcement.find(nodeId);
-	//std::cout<<"Node "<<nodeId<<" stores "<<p->second<<"\n";
 	return p->second;
 }
 void ApplicationUtil::putAnnouncementInReceivedMap(int nodeId, int senderNode, int value)
@@ -541,28 +535,28 @@ void ApplicationUtil::putShortLivedPrivateKeyInMap(int nodeId, std::string key)
 }
 
 
-std::vector<SecByteBlock> ApplicationUtil::getUsedAESKeyVector(int nodeId)
+std::vector<SecByteBlock> ApplicationUtil::getReceivedAESKeyVector(int nodeId)
 {
 	map<int,std::vector<SecByteBlock> >::iterator p;
-	p = UsedAESKeyMap.find(nodeId);
+	p = ReceivedAESKeyMap.find(nodeId);
 	return p->second;
 }
 
-void ApplicationUtil::putUsedAESKeyInMap(int nodeId, SecByteBlock key)
+void ApplicationUtil::putReceivedAESKeyInMap(int nodeId, SecByteBlock key)
 {
 	
 	map<int,std::vector<SecByteBlock> >::iterator p;
-	p = UsedAESKeyMap.find(nodeId);	
-	if(p != UsedAESKeyMap.end())
+	p = ReceivedAESKeyMap.find(nodeId);	
+	if(p != ReceivedAESKeyMap.end())
 		p->second.push_back(key);
 	else
 	{
 		std::vector<SecByteBlock> tempVector;
 		tempVector.push_back(key);
-		UsedAESKeyMap.insert(pair<int,std::vector<SecByteBlock> >(nodeId,tempVector));
+		ReceivedAESKeyMap.insert(pair<int,std::vector<SecByteBlock> >(nodeId,tempVector));
 	}
 }
-
+/*
 SecByteBlock ApplicationUtil::getReceivedAESKeyForMsgId(int nodeId, std::string msgId)
 {
 	map<int,map<std::string,SecByteBlock> >::iterator p;
@@ -604,48 +598,89 @@ void ApplicationUtil::putReceivedAESKeyForMsgIdInMap(int nodeId, std::string msg
 	}	
 }
 
-
-void ApplicationUtil::putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId, std::string value)
+*/
+void ApplicationUtil::putShortLivedPublicKeyforMsgIdInMap(int nodeId, std::string msgId, std::string value)
 {
 
-	map<int,map<int,std::string> >::iterator p;
+	map<int,map<std::string,std::string> >::iterator p;
 	p = msgIdPublicKeyPairMap.find(nodeId);
 	if(p != msgIdPublicKeyPairMap.end())
 	{
-		map<int,std::string>::iterator p1;
+		map<std::string,std::string>::iterator p1;
 		p1 = p->second.find(msgId);	
 		if(p1 != p->second.end())
 			p->second[msgId] = value;
 		else
-		p->second.insert(pair<int,std::string>(msgId,value));
+		p->second.insert(pair<std::string,std::string>(msgId,value));
 	}
 	else
 	{	
-		map<int,std::string> tempMap;	
-		tempMap.insert(pair<int,std::string>(msgId,value));
-		msgIdPublicKeyPairMap.insert(pair<int,map<int,std::string> >(nodeId,tempMap));
+		map<std::string,std::string> tempMap;	
+		tempMap.insert(pair<std::string,std::string>(msgId,value));
+		msgIdPublicKeyPairMap.insert(pair<int,map<std::string,std::string> >(nodeId,tempMap));
 	}
 
 }
 
-map<int,std::string> ApplicationUtil::getShortLivedPublicKeyforMsgIdSubMap(int nodeId)
+map<std::string,std::string> ApplicationUtil::getShortLivedPublicKeyforMsgIdSubMap(int nodeId)
 {
 
-	map<int, map<int,std::string> >::iterator p;
+	map<int, map<std::string,std::string> >::iterator p;
 	p = msgIdPublicKeyPairMap.find(nodeId);
 	
 	return p->second;
 
 }
 
-std::string ApplicationUtil::getShortLivedPublicKeyforMsgIdFromMap(int nodeId, int msgId)
+std::string ApplicationUtil::getShortLivedPublicKeyforMsgIdFromMap(int nodeId, std::string msgId)
 {
 	
-	map<int,map<int,std::string> >::iterator p;
+	map<int,map<std::string,std::string> >::iterator p;
 	p = msgIdPublicKeyPairMap.find(nodeId);
 
-	map<int,std::string>::iterator p1;
+	map<std::string,std::string>::iterator p1;
 	p1 = p->second.find(msgId);
 	return p1->second;
 
+}
+
+SecByteBlock ApplicationUtil::getSentAESKeyForMsgId(int nodeId, std::string msgId)
+{
+	map<int,map<std::string,SecByteBlock> >::iterator p;
+	p = SentAESKeyForMsgIdMap.find(nodeId);
+
+	if(p != SentAESKeyForMsgIdMap.end())
+	{
+		map<std::string,SecByteBlock>::iterator p1;
+		p1 = p->second.find(msgId);
+		if(p1 != p->second.end())
+			return p1->second;
+		else 
+		{
+			
+			return SecByteBlock(0);
+		}
+	}
+	else 
+		{
+			
+			return SecByteBlock(0);
+		}	
+}
+void ApplicationUtil::putSentAESKeyForMsgIdInMap(int nodeId, std::string msgId, SecByteBlock key)
+{
+	
+	map<int,map<std::string,SecByteBlock> >::iterator p;
+	p = SentAESKeyForMsgIdMap.find(nodeId);
+	if(p != SentAESKeyForMsgIdMap.end())
+	{
+		p->second.insert(pair<std::string,SecByteBlock>(msgId,key));
+		
+	}
+	else
+	{	
+		map<std::string,SecByteBlock> tempMap;	
+		tempMap.insert(pair<std::string,SecByteBlock>(msgId,key));
+		SentAESKeyForMsgIdMap.insert(pair<int,map<std::string,SecByteBlock> >(nodeId,tempMap));
+	}	
 }
