@@ -28,10 +28,12 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 		AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
 
 		std::string AESKey_String = hexStr(AESkey.BytePtr(), AESkey.SizeInBytes());
-		appUtil->putUsedAESKeyInMap(senderNode,AESkey);
+		//put in sentAESkey for msg id map
+		appUtil->putSentAESKeyForMsgIdInMap(senderNode, sourceMessageId, AESkey);
+
 		std::string sendPublicKey, encodedPublicKey;
 		//node A public key
-		sendPublicKey = appUtil->getShortLivedPublicKeyforMsgIdFromMap(senderNode,atoi(sourceMessageId.c_str()));
+		sendPublicKey = appUtil->getShortLivedPublicKeyforMsgIdFromMap(senderNode,sourceMessageId);
 	
 		Message = encoded_message_set(sourceControl, sourceMessageId, AESKey_String, sendPublicKey);
 		MessageLength = (int)strlen(Message.c_str()) ;	
@@ -41,8 +43,8 @@ static void SendMessageUsingDCNET (Ptr<Socket> socket,int senderNode, std::strin
 	}
 	if(sourceControl == MESSAGE_REPLY)
 	{
-		SecByteBlock senderAESKey = appUtil->getReceivedAESKeyForMsgId(senderNode, sourceMessageId);
-		Message = encoded_message_reply(sourceControl, sourceMessageId, sourceMessage, senderAESKey);
+		SecByteBlock reply_senderAESKey = appUtil->getSentAESKeyForMsgId(senderNode, sourceMessageId);
+		Message = encoded_message_reply(sourceControl, sourceMessageId, sourceMessage, reply_senderAESKey);
 		MessageLength = (int)strlen(Message.c_str()) ;	
 		
 		sharedMessage.str("");
