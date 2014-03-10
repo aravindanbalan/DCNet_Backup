@@ -27,7 +27,7 @@ static void AnonymousReceiverStep2()
 	std::string replyControl= MESSAGE_SET;
 	std::string replyMessageId;
 	Ptr<Socket> replySource = Socket::CreateSocket (c.Get (receiveNode), tid);
-	//check the step 1 output and process it
+	//check the step 1 output and extract msgid, message and the public key
 	replyMessageId = decode_binary(receiveNode, sharedMessage.str().c_str());
 	std::cout<<"Received { "<<replyMessageId<<" } by Node "<<receiveNode<< " and wants to reply\n";
 	std::cout<<"Node "<<receiveNode<< " Exchanging AES key \n";		
@@ -39,19 +39,21 @@ static void AnonymousReceiverStep3()
 {
 	std::string replyMessage = "Hi this is aravind";
 	int replyNode = 1;
+	int AES_receivingNode = 0;
 	std::string replyControl= MESSAGE_REPLY;
 	std::string replyMessageId;
 		
 	Ptr<Socket> replySource = Socket::CreateSocket (c.Get (replyNode), tid);
-	replyMessageId = decode_binary(replyNode, sharedMessage.str().c_str());
+	
+	replyMessageId = decode_binary(AES_receivingNode, sharedMessage.str().c_str());
+	std::cout<<"Received { "<<replyMessageId<<" } by Node "<<AES_receivingNode<< " and has the AES key now for the associated message id. \n";
 
-	std::cout<<"{ "<<replyMessageId<<" }  Node "<<replyNode<< " sending Message \""<<replyMessage<<"\" to everyone\n";
+	std::cout<<"{ "<<replyMessageId<<" }  Node "<<replyNode<< " sending Message \""<<replyMessage<<"\" to everyone anonymously\n";
 	SendMessageUsingDCNET(replySource, replyNode, replyControl, replyMessageId,replyMessage);
 }
 static void AnonymousReceiverStep4()
 {
 	int reply_receiving_node = 0;
-	std::cout<<"Shared message : "<<sharedMessage.str()<<"\n";
 	std::string replyMessageId = decode_binary(reply_receiving_node, sharedMessage.str().c_str());
 	std::cout<<"{ "<<replyMessageId<<" }  Node "<<reply_receiving_node<< " received reply Message from someone \n";
 	Simulator::Stop ();
