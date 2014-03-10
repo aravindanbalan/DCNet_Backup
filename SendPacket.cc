@@ -17,45 +17,43 @@ static void AnonymousReceiverStep1()
 	std::string sourceMessage = "Hello";
 	std::string sourceControl = INITIATE_MESSAGE;
 	std::string sourceMessageId ="000-000-0001";
+	std::cout<<"{ "<<sourceMessageId<<" }  Node "<<sourceNode<< " sending Message \""<<sourceMessage<<"\" to everyone\n";
 	SendMessageUsingDCNET(source,sourceNode, sourceControl, sourceMessageId,sourceMessage);	
 }
 	
 static void AnonymousReceiverStep2()
-{
-	std::cout<<"In anonymous Receiver step 2\n";
+{	
 	int receiveNode = 1;
-	//std::string replyMessage = "hi";
 	std::string replyControl= MESSAGE_SET;
 	std::string replyMessageId;
-
 	Ptr<Socket> replySource = Socket::CreateSocket (c.Get (receiveNode), tid);
 	//check the step 1 output and process it
-
 	replyMessageId = decode_binary(receiveNode, sharedMessage.str().c_str());
-	std::cout<<"************replyMessageid : "<<replyMessageId<<"\n";
+	std::cout<<"Received { "<<replyMessageId<<" } by Node "<<receiveNode<< " and wants to reply\n";
+	std::cout<<"Node "<<receiveNode<< " Exchanging AES key \n";		
 	//step2 - Node C wants to reply to the message by sending first the AES key
-
 	SendMessageUsingDCNET(replySource,receiveNode, replyControl, replyMessageId,"");
-	
 }
 
 static void AnonymousReceiverStep3()
 {
-	std::cout<<"In anonymous Receiver step 3\n";
 	std::string replyMessage = "Hi this is aravind";
-	int replyNode = 0;
+	int replyNode = 1;
 	std::string replyControl= MESSAGE_REPLY;
 	std::string replyMessageId;
 		
 	Ptr<Socket> replySource = Socket::CreateSocket (c.Get (replyNode), tid);
 	replyMessageId = decode_binary(replyNode, sharedMessage.str().c_str());
+
+	std::cout<<"{ "<<replyMessageId<<" }  Node "<<replyNode<< " sending Message \""<<replyMessage<<"\" to everyone\n";
 	SendMessageUsingDCNET(replySource, replyNode, replyControl, replyMessageId,replyMessage);
 }
 static void AnonymousReceiverStep4()
 {
-	int reply_receiving_node = 1;
+	int reply_receiving_node = 0;
+	std::cout<<"Shared message : "<<sharedMessage.str()<<"\n";
 	std::string replyMessageId = decode_binary(reply_receiving_node, sharedMessage.str().c_str());
-
+	std::cout<<"{ "<<replyMessageId<<" }  Node "<<reply_receiving_node<< " received reply Message from someone \n";
 	Simulator::Stop ();
 }
 static void procedureHandle(Ptr<Socket> socket)
@@ -115,11 +113,8 @@ void ReceiveMessage (Ptr<Socket> socket)
     CFB_Mode<AES>::Decryption cfbDecryption(key, aesKeyLength, iv);
     cfbDecryption.ProcessData((byte*)recMessage.c_str(), (byte*)recMessage.c_str(), messageLen);
 
-    // std::cout<<"message 4: "<<recMessage<<"\n";
-//	NS_LOG_UNCOND ("Received message packet: Data: " +recMessage+"   TagID: "+ss + " to "+ss1+"\n");
-
     int value = atoi(recMessage.c_str());
-//	std::cout<<"Value :"<<value<<"\n";
+
     //put in node's map
 
     appUtil->putSecretBitInGlobalMap(srcNodeIndex,recNodeIndex,value);
@@ -133,7 +128,6 @@ void ReceiveMessage (Ptr<Socket> socket)
         Simulator::ScheduleNow (&DisplayMessage,source);
     }
 }
-
 
 int randomBitGeneratorWithProb(double p)
 {
@@ -192,14 +186,12 @@ publicKeyCounter = (numNodes * numNodes) - numNodes;
             }
         }
     }
-
-
 }
 
 static void SendPublicKey (Ptr<Socket> socket, SecByteBlock pub, int index)
 {
     Ptr<Packet> sendPacket = Create<Packet> ((uint8_t*)pub.BytePtr(),(uint8_t) pub.SizeInBytes());
-//	std::cout<<"Debug : Inside dcnet send public key \n";
+
     MyTag sendTag;
     sendTag.SetSimpleValue(index);
     sendPacket->AddPacketTag(sendTag);
@@ -213,14 +205,13 @@ static void SendPublicKey (Ptr<Socket> socket, SecByteBlock pub, int index)
 
 void ReceivePublicKey (Ptr<Socket> socket)
 {
- //std::cout<<"Debug : Inside dcnet receive public key \n";
+ 
     Ptr<Node> recvnode = socket->GetNode();
     int recNodeIndex = ApplicationUtil::getInstance()->getNodeFromMap(recvnode);
 
     Ptr<Packet> recPacket = socket->Recv();
     stage1RecvPacketCount +=1; //increment received packet count for stage 1
 
-//	std::cout<<"Node receiving: "<<recNodeIndex<<"\n";
     uint8_t *buffer = new uint8_t[recPacket->GetSize()];
     recPacket->CopyData(buffer,recPacket->GetSize());
 
@@ -235,8 +226,6 @@ void ReceivePublicKey (Ptr<Socket> socket)
     int srcNodeIndex = atoi(ss.c_str());
     std::string recvData = hexStr(pubKey.BytePtr(),pubKey.SizeInBytes());
 
-//	std::cout<<"Node : "<<recNodeIndex<<"  from Node TagID: "<<ss<<"\n";
-
     DH dh;
     dh.AccessGroupParameters().Initialize(p, q, g);
     SecByteBlock sharedKey(ApplicationUtil::getInstance()->getDhAgreedLength());
@@ -246,14 +235,11 @@ void ReceivePublicKey (Ptr<Socket> socket)
     ApplicationUtil::getInstance()->putSecretKeyInGlobalMap(recNodeIndex,srcNodeIndex,sharedKey);
 
     publicKeyCounter--;
-//	std::cout<<"Public key counter :"<< publicKeyCounter<< "\n";
+
     if(publicKeyCounter == 0)
     {
-//	std::cout<<"Debug : calling simulator loop \n";
         Simulator::ScheduleNow (&SimulatorLoop, socket,tid,c,i);
     }
-
-
 }
 
 void generateKeys(int index, ApplicationUtil *appUtil)
@@ -288,7 +274,6 @@ void generateKeys(int index, ApplicationUtil *appUtil)
         appUtil->putPublicKeyInMap(index,pub);
         appUtil->setDhAgreedLength(dh.AgreedValueLength());
 
-        //	std::cout<<"Dh key length "<< index <<" : "<<dh.AgreedValueLength()<<"\n";
     }
     catch(const CryptoPP::Exception& e)
     {
@@ -309,27 +294,21 @@ static void SendAnnouncement (Ptr<Socket> socket, int result, int index)
 	std::string message = ss.str();
 	Ptr<Packet> sendPacket =
 	Create<Packet> ((uint8_t*)message.c_str(),message.size());
-	//Ptr<Packet> sendPacket = Create<Packet> (result);
 	
 	MyTag sendTag;
 	sendTag.SetSimpleValue(index);
 	sendPacket->AddPacketTag(sendTag);
 
 	socket->Send(sendPacket);
-	
-	
-	//std::cout<<"Sending announcement for "<<index<<":"<<message<<"Packet count:"<<AnnouncementPacketCount<<"\n";
 	socket->Close();
 }
 
 void ReceiveAnnouncement (Ptr<Socket> socket)
 {
 	AnnouncementPacketCount-=1;
-	//std::cout<<"Hello\n";
 	Ptr<Packet> recPacket = socket->Recv();	
-	//stage2RecvPacketCount += 1;//increment recv packet counter for stage2
+
 	ApplicationUtil *appUtil = ApplicationUtil::getInstance();
-	//std::cout<<"Receiving announcement"<<"\n";
 	Ptr<Node> recvnode = socket->GetNode();
 	int recNodeIndex = ApplicationUtil::getInstance()->getNodeFromMap(recvnode);
 
@@ -342,13 +321,10 @@ void ReceiveAnnouncement (Ptr<Socket> socket)
 	MyTag recTag;
 	recPacket->PeekPacketTag(recTag);
 	int srcNodeIndex =int(recTag.GetSimpleValue());
-	//std::cout<<"Putting announcement in map"<<"\n";
 	appUtil->putAnnouncementInReceivedMap(recNodeIndex, srcNodeIndex, atoi(recMessage.c_str()));
 	if(AnnouncementPacketCount==0)
 	{
-	//	std::cout<<"Hello\n";
 		int x=0;
-		//sharedMessage<<resultBit;
 		//xoring outputs
 
 		for(int index=0;index<(int)numNodes;index++)
@@ -356,9 +332,7 @@ void ReceiveAnnouncement (Ptr<Socket> socket)
 			 x ^= appUtil->getAnnouncement(index);			
 		 		
 		}
-		
 	
-
 		sharedMessage<<x;		
 		AnnouncementPacketCount = (numNodes * numNodes) - numNodes;
 		publicKeyCounter = (numNodes * numNodes) - numNodes;
@@ -373,18 +347,15 @@ void DisplayMessage(Ptr<Socket> socket)
     ApplicationUtil *appUtil = ApplicationUtil::getInstance();
     
     int bit = Message.at(rounds)-48 ;
-	
-	//std::cout<<"Current Round : "<<rounds<<"\n";
+
     for(int index = 0; index < (int)numNodes ; index++)
     {
 
-		int result = 0;
+	int result = 0;
         map<int,int> NodeSecretBitMap = appUtil->getSecretBitSubMap(index);
 
         for (map<int,int>::iterator it=NodeSecretBitMap.begin(); it!=NodeSecretBitMap.end(); ++it)
         {
-
-	//std::cout<<"Adj bits of node "<<index<<" : "<<(int)it->second<<"\n";
             //Exor the adjacent node bits stored in the map
             result ^= (int)it->second;
         }
@@ -393,18 +364,10 @@ void DisplayMessage(Ptr<Socket> socket)
             result ^= bit;
         }
 	
-	//std::cout<<"Result for Node "<<index<<" is : "<<result<<" in round "<<rounds<<"\n";
-		appUtil->putAnnouncementInGlobalMap(index, result);
+	appUtil->putAnnouncementInGlobalMap(index, result);
 
 	}
-	/*	for(int index=0;index<(int)numNodes;index++)
-		{
-			int r=appUtil->getAnnouncement(index);
-			//std::cout<<"Verifying node "<<index<<" announcement "<<r<<"\n";
 
-		}
-*/
-    //sharedMessage<<result;
 for (int index1 = 0; index1 < (int)numNodes; index1++)
 	{
 		  
@@ -412,19 +375,16 @@ for (int index1 = 0; index1 < (int)numNodes; index1++)
 		{
 			if(index1 != index2)
 			{
-	
 				Ptr<Socket> recvNodeSink = Socket::CreateSocket (c.Get (index2), tid);
-				      InetSocketAddress localSocket = InetSocketAddress (Ipv4Address::GetAny (),9802);
-				      recvNodeSink->Bind (localSocket);
-				      recvNodeSink->SetRecvCallback (MakeCallback (&ReceiveAnnouncement));
+				InetSocketAddress localSocket = InetSocketAddress (Ipv4Address::GetAny (),9802);
+				recvNodeSink->Bind (localSocket);
+				recvNodeSink->SetRecvCallback (MakeCallback (&ReceiveAnnouncement));
 									    				      
-				      InetSocketAddress remoteSocket = InetSocketAddress (i.GetAddress (index2, 0), 9802);
+				InetSocketAddress remoteSocket = InetSocketAddress (i.GetAddress (index2, 0), 9802);
 				Ptr<Socket> sourceNodeSocket = Socket::CreateSocket (c.Get (index1), tid);
-				      sourceNodeSocket->Connect (remoteSocket);
+				sourceNodeSocket->Connect (remoteSocket);
 
-
-	Simulator::ScheduleNow (&SendAnnouncement, sourceNodeSocket,appUtil->getAnnouncement(index1), index1);
-				
+				Simulator::ScheduleNow (&SendAnnouncement, sourceNodeSocket,appUtil->getAnnouncement(index1), index1);	
 			}	
 		}
 	}
@@ -433,7 +393,7 @@ for (int index1 = 0; index1 < (int)numNodes; index1++)
 void DisplayMeasurements()
 {
 	
-    std::cout<<"Message length:"<<MessageLength<<"\n";	
+    std::cout<<"Number of bits sent : "<<MessageLength<<"\n";	
     //std::cout<<"Shared Message after "<<MessageLength<<" rounds is : "<<sharedMessage.str()<<"\n";
     std::cout<<"Sent Packet Count Stage 1: "<<stage1SentPacketCount<<"\n";
     std::cout<<"Sent Packet Count Stage 2: "<<stage2SentPacketCount<<"\n";
@@ -465,9 +425,7 @@ ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 }
 
 void DCNET(Ptr<Socket> socket, int numRounds)
-{
-    //numRounds++;
-	//std::cout<<"Debug : Inside dcnet\n";
+{	
 	 stage1StartTime.push_back(Simulator::Now());
     
         ApplicationUtil *appUtil = ApplicationUtil::getInstance();
@@ -491,27 +449,22 @@ void DCNET(Ptr<Socket> socket, int numRounds)
             {
                 if(index1 != index2)
                 {
-		//	std::cout<<"Debug : Inside dcnet  1\n";
                     Ptr<Socket> recvNodeSink = Socket::CreateSocket (c.Get (index2), tid);
                     InetSocketAddress localSocket = InetSocketAddress (Ipv4Address::GetAny (),9803);
                     recvNodeSink->Bind (localSocket);
                     recvNodeSink->SetRecvCallback (MakeCallback (&ReceivePublicKey));
-                  //  std::cout<<"before\n";
+
                     InetSocketAddress remoteSocket = InetSocketAddress (i.GetAddress (index2, 0), 9803);
                     Ptr<Socket> sourceNodeSocket = Socket::CreateSocket (c.Get (index1), tid);
                     sourceNodeSocket->Connect (remoteSocket);
                     Simulator::Schedule (Seconds(index1/1000000.0),&SendPublicKey, sourceNodeSocket,appUtil->getPublicKeyFromMap(index1),index1);
 
-                  //  std::cout<<"after\n";
                 }
             }
         }
     }
     else
     {
-//	std::cout<<"Debug : Inside dcnet else part\n";
-       // stage2EndTime.erase(stage2EndTime.begin());
-       // stage2EndTime.push_back(Simulator::Now());
         DisplayMeasurements();
 	currentStep++;
 	//this method handles the anonymous receiver steps
@@ -519,45 +472,8 @@ void DCNET(Ptr<Socket> socket, int numRounds)
     }
 }
 
-void DumpPrivateKey( const CryptoPP::RSAES_OAEP_SHA_Decryptor& key )
-{
-   std::cout << "n: " << key.GetTrapdoorFunction().GetModulus();
-   std::cout << std::endl;
-
-   std::cout << "d: " << key.GetTrapdoorFunction().GetPrivateExponent();
-   std::cout << std::endl;
-   std::cout << "e: " << key.GetTrapdoorFunction().GetPublicExponent();
-   std::cout << std::endl;
-
-   std::cout << "p: " << key.GetTrapdoorFunction().GetPrime1();
-   std::cout << std::endl;
-   std::cout << "q: " << key.GetTrapdoorFunction().GetPrime2();
-   std::cout << std::endl;
-}
-
-void DumpPublicKey( const CryptoPP::RSAES_OAEP_SHA_Encryptor& key )
-{
-   std::cout << "n: " << key.GetTrapdoorFunction().GetModulus();
-   std::cout << std::endl;
-
-   ////////////////////////////////////////////////////////////////
-   // Not in a Public Key...
-   // std::cout << "d: " << key.GetTrapdoorFunction().GetPrivateExponent();
-   // std::cout << std::endl;
-   std::cout << "e: " << key.GetTrapdoorFunction().GetPublicExponent();
-   std::cout << std::endl;
-
-   ////////////////////////////////////////////////////////////////
-   // Not in a Public Key...
-   // std::cout << "p: " << key.GetTrapdoorFunction().GetPrime1();
-   // std::cout << std::endl;
-   // std::cout << "q: " << key.GetTrapdoorFunction().GetPrime2();
-   // std::cout << std::endl;
-}
-
 void GenerateKeyPairForNode(int nodeIndex)
 {
-//	params.GenerateRandomWithKeySize(rnd, 512);
 	RSA::PrivateKey privKey;
 	//privKey.Initialize(n, e, d);
 
@@ -570,64 +486,7 @@ void GenerateKeyPairForNode(int nodeIndex)
 	privKey = process_privateKey("0xbeaadb3d839f3b5f0x110x21a5ae37b9959db9");
 	
 	appUtil->putShortLivedPublicKeyInMap(nodeIndex, "0xbeaadb3d839f3b5f0x11");
-	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, "0xbeaadb3d839f3b5f0x110x21a5ae37b9959db9");
-
-	//std::string publiKey = "305A300D06092A864886F70D01010105000349003046024100BEDD8D4C5BB0E964C496225638823E6397CB6CA33D1B9B609B7DFE4F27C58CC5600607867564C8283E99341D5851669C4606C0A671C241416DA8F80868E29813020111";
-
-	if(nodeIndex==0)
-	{
-
-		std::string input="Hi this is aravindan", cipher, encoded;
-		std::cout<<AES::DEFAULT_KEYLENGTH<<"\n";
-		std::cout<<AESkey.size()<<"\n";
-		AESrnd.GenerateBlock( AESkey, AESkey.size());
-		// Generate a random IV
-		AESrnd.GenerateBlock(AESiv, AES::BLOCKSIZE);
-
-		std::string AESKey_String = hexStr(AESkey.BytePtr(), AESkey.SizeInBytes());
-		std::cout<<"************Actual sent AES key : "<<AESKey_String<<"\n";	
-
-		CFB_Mode<AES>::Encryption cfbEncryption;
-		cfbEncryption.SetKeyWithIV( AESkey, AESkey.size(), AESiv );
-
-	
-		StringSource( input, true, 
-			new StreamTransformationFilter( cfbEncryption,
-			    new StringSink( cipher )
-			) // StreamTransformationFilter      
-		    );
-	
-			StringSource( cipher, true,
-			    new HexEncoder(
-				new StringSink( encoded )
-			    ) // HexEncoder
-			); // StringSource
-		std::cout << "****************Hex encoded text: " << encoded <<"\n\n";
-
-	
-		SecByteBlock aesKey = AESkey;
-
-		std::string AESKey_String1 = hexStr(aesKey.BytePtr(), aesKey.SizeInBytes());
-		std::cout<<"Received AES key : "<<AESKey_String1<<"\n";	
-
-		CFB_Mode<AES>::Decryption cfbDecryption;
-		cfbDecryption.SetKeyWithIV( aesKey, AESkey.size(), AESiv );
-
-		std::string decodedcipher, recovered;
-		StringSource( encoded, true,
-		    new HexDecoder(
-			new StringSink( decodedcipher )
-		    ) // HexDecoder
-		);
-	
-	StringSource( decodedcipher, true, 
-		new StreamTransformationFilter( cfbDecryption,
-		    new StringSink( recovered )
-		) // StreamTransformationFilter
-	    );
-		std::cout<<"*************recovered : "<< recovered<<"\n\n";
-	}
-
+	appUtil->putShortLivedPrivateKeyInMap(nodeIndex, "0xbeaadb3d839f3b5f0x110x21a5ae37b9959db9");	
 }	
 
 int main (int argc, char *argv[])
@@ -638,8 +497,6 @@ int main (int argc, char *argv[])
     ApplicationUtil *appUtil = ApplicationUtil::getInstance();
 
     CommandLine cmd;
-	
-    std::cout<<"argc : "<<argc<<"\n";
 
     cmd.AddValue ("numNodes", "Number of Nodes", numNodes);
     cmd.AddValue ("message", "Actual Message", Message);
@@ -657,7 +514,6 @@ int main (int argc, char *argv[])
     // Fix non-unicast data rate to be the same as that of unicast
     Config::SetDefault ("ns3::WifiRemoteStationManager::NonUnicastMode",
                         StringValue (phyMode));
-
 
     c.Create (numNodes);
     for(int nodeind = 0; nodeind < numNodes; nodeind++)
@@ -690,15 +546,9 @@ int main (int argc, char *argv[])
                                   "DataMode",StringValue (phyMode),
                                   "ControlMode",StringValue (phyMode));
 
-
-
-
-
-
     // Set it to adhoc mode
     wifiMac.SetType ("ns3::AdhocWifiMac");
     NetDeviceContainer devices = wifi.Install (wifiPhy, wifiMac, c);
-
 
     MobilityHelper mobility;
     mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
@@ -710,14 +560,10 @@ int main (int argc, char *argv[])
                                    "LayoutType", StringValue ("RowFirst"));
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
     mobility.Install (c);
-
-
+    
     Ipv4StaticRoutingHelper staticRouting;
-
     Ipv4ListRoutingHelper list;
     list.Add (staticRouting, 0);
-
-
 
     InternetStackHelper internet;
     internet.SetRoutingHelper (list); // has effect on the next Install ()
@@ -734,19 +580,11 @@ int main (int argc, char *argv[])
     AnnouncementPacketCount = (numNodes * numNodes) - numNodes;
     publicKeyCounter = (numNodes * numNodes) - numNodes;
     randomBitCounter = (numNodes * (numNodes-1)/2);
-
-
-  //  std::cout<<"Actual Message : "<<Message<<"\n";
- //   MessageLength = (int)strlen(Message.c_str()) ;
-  //  std::cout<<"Message length:"<<MessageLength<<"\n";
+  
     source = Socket::CreateSocket (c.Get (0), tid);
-   // DCNET(source, 0);
 
 
 //****************************anonymous receiver part*******************************************
-
-// Generate a random IV and a common IV
-
 
 //step 1 - Node A sends Message to all nodes using DCNet
 
@@ -767,10 +605,7 @@ AnonymousReceiverStep1();
         // To do-- enable an IP-level trace that shows forwarding events only
     }
 
-    //Simulator::Stop (Seconds (3000.0));
     Simulator::Run ();
-Simulator::Destroy ();
-    
-
+    Simulator::Destroy ();   
     return 0;
 }
