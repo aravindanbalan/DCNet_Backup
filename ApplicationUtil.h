@@ -142,9 +142,6 @@ static RSA::PublicKey process_publicKey(std::string publicKey)
 	Integer n1(publicKey.substr(0,18).c_str());
 	Integer e1(publicKey.substr(18).c_str());
 
-	std::cout<<"*********"<<publicKey.substr(0,18)<<"\n";
-	std::cout<<"*********"<<publicKey.substr(18)<<"\n";
-
 	RSA::PublicKey pubKey;
 	pubKey.Initialize(n1, e1);
 	return pubKey;
@@ -153,13 +150,10 @@ static RSA::PublicKey process_publicKey(std::string publicKey)
 static RSA::PrivateKey process_privateKey(std::string privKey)
 {
 	Integer n1(privKey.substr(0,18).c_str());
-	std::cout<<"*********"<<privKey.substr(0,18)<<"\n";
+	
 	privKey = privKey.substr(18);
 	Integer e1(privKey.substr(0,4).c_str());
 	Integer d1(privKey.substr(4).c_str());
-	std::cout<<"*********"<<privKey.substr(0,4)<<"\n";
-	std::cout<<"*********"<<privKey.substr(4)<<"\n";
-
 	RSA::PrivateKey privateKey;
 	privateKey.Initialize(n1, e1, d1);
 	return privateKey;
@@ -624,16 +618,12 @@ void ApplicationUtil::putShortLivedPublicKeyforMsgIdInMap(int nodeId, int msgId,
 			p->second[msgId] = value;
 		else
 		p->second.insert(pair<int,std::string>(msgId,value));
-
-	//	std::cout<<"Inserting "<<nodeId<<","<<senderNode<<","<<value<<"\n";
-		
 	}
 	else
 	{	
 		map<int,std::string> tempMap;	
 		tempMap.insert(pair<int,std::string>(msgId,value));
 		msgIdPublicKeyPairMap.insert(pair<int,map<int,std::string> >(nodeId,tempMap));
-	//	std::cout<<"Inserting "<<nodeId<<","<<senderNode<<","<<value<<"\n";
 	}
 
 }
@@ -659,49 +649,3 @@ std::string ApplicationUtil::getShortLivedPublicKeyforMsgIdFromMap(int nodeId, i
 	return p1->second;
 
 }
-
-
-///************************************************************
-
-/*
-
-void readInput(char* fileName) {
-    printf("****************ReadInput***************\n");
- 
-    // read file
-    ifstream fin(fileName);
-    string tmp = ""; // a line in the input file
-    while(getline(fin, tmp)) {
-        // add string into vector
-        listString.push_back(tmp);
-        cout << listString[listString.size() - 1] << endl;
-    }
-    printf("\n\n");
-    fin.close();
-}
- 
-
-void parseValues() {
-    printf("****************ParseValue***************\n");
-    for (int i = 0; i < listString.size(); ++i) {
-        char tmp[100000];
-		
-        strcpy(tmp, listString[i].c_str()); // copy string to char array
-        stringArray tmpArray;
-        // utilize string token to extract data
-        char * pch;
-        pch = strtok (tmp,",");
-        while (pch != NULL) {
-            tmpArray.push_back(pch);
-           printf ("%s\t",pch); 
-            // get the next token
-            pch = strtok (NULL, ",");
-			
-        }
-        data.push_back(tmpArray);
-		
-        printf("\n");
-    }
-}
-
-*/
